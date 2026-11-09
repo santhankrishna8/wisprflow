@@ -47,6 +47,8 @@ npm run dist
 
 Use `dist:mac`, `dist:win` or `dist:linux` to build for one platform. Output goes to `release/`.
 
+You can also build the Windows installer on GitHub: open **Actions → Build Windows installer → Run workflow**, then download `WisprFlow-Windows-installer` from the finished run.
+
 ## Platform notes
 
 - **macOS** – grant Microphone and Accessibility access (onboarding walks you through it). Accessibility is needed to paste into other apps.
