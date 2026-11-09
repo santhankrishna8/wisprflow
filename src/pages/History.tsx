@@ -5,14 +5,18 @@ import { TranscriptRow } from "../components/Transcript";
 import { dayLabel } from "../lib/stats";
 import type { HistoryEntry } from "../lib/wispr";
 
+const RETENTION_LABEL: Record<string, string> = { "3h": "3 hours", "24h": "24 hours", "7d": "7 days", "30d": "30 days" };
+
 export default function History({
   history,
   onDelete,
   onClear,
+  retention,
 }: {
   history: HistoryEntry[];
   onDelete: (id: string) => void;
   onClear: () => void;
+  retention?: string;
 }) {
   const [q, setQ] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
@@ -45,7 +49,11 @@ export default function History({
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-semibold tracking-[-0.02em]">History</h1>
-          <p className="mt-1 text-[13px] text-fg-3">Everything you've dictated, stored only on this device.</p>
+          <p className="mt-1 text-[13px] text-fg-3">
+            {retention && RETENTION_LABEL[retention]
+              ? `Stored only on this device. Dictations older than ${RETENTION_LABEL[retention]} are deleted automatically.`
+              : "Everything you've dictated, stored only on this device."}
+          </p>
         </div>
         {history.length > 0 && (
           <div className="flex gap-2">

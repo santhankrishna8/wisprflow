@@ -17,3 +17,22 @@ test("cleanupPrompt includes dictionary spellings and tone", () => {
   assert.match(p, /"Priya"/);
   assert.match(p, /professionally/);
 });
+
+const { createStore, RETENTION_MS } = require("../electron/store.cjs");
+const os = require("node:os");
+const path = require("node:path");
+const fs = require("node:fs");
+
+test("pruneHistory removes only entries older than the retention window", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-store-"));
+  const store = createStore({ getPath: () => dir }, { isEncryptionAvailable: () => false });
+  const now = Date.parse("2026-11-09T12:00:00Z");
+  const at = (hoursAgo) => new Date(now - hoursAgo * 3600_000).toISOString();
+  for (const [id, h] of [["fresh", 0.5], ["edge", 2.9], ["old", 3.1], ["ancient", 50]]) {
+    store.addHistory({ id, createdAt: at(h), text: id, words: 1 });
+  }
+  assert.strictEqual(store.pruneHistory(RETENTION_MS["3h"], now), 2);
+  assert.deepStrictEqual(store.getHistory().map((h) => h.id).sort(), ["edge", "fresh"]);
+  assert.strictEqual(store.pruneHistory(RETENTION_MS.forever, now), 0, "forever keeps everything");
+  assert.strictEqual(store.getHistory().length, 2);
+});

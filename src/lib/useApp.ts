@@ -20,7 +20,12 @@ export function useHistory() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   useEffect(() => {
     wispr.getHistory().then((h) => setHistory([...h]));
-    return wispr.onHistoryAdded((e) => setHistory((h) => [e, ...h.filter((x) => x.id !== e.id)]));
+    const offAdded = wispr.onHistoryAdded((e) => setHistory((h) => [e, ...h.filter((x) => x.id !== e.id)]));
+    const offReplaced = wispr.onHistoryReplaced((list) => setHistory([...list]));
+    return () => {
+      offAdded();
+      offReplaced();
+    };
   }, []);
   const remove = useCallback(async (id: string) => {
     setHistory((h) => h.filter((x) => x.id !== id));

@@ -26,6 +26,7 @@ export interface Settings {
   launchAtLogin: boolean;
   theme: Theme;
   micDeviceId: string;
+  historyRetention: "forever" | "3h" | "24h" | "7d" | "30d";
   showBubble: boolean;
   hasKey: Record<string, boolean>;
 }
@@ -90,6 +91,7 @@ export interface WisprApi {
   deleteHistory(id: string): Promise<void>;
   clearHistory(): Promise<void>;
   onHistoryAdded(cb: (e: HistoryEntry) => void): Unsub;
+  onHistoryReplaced(cb: (list: HistoryEntry[]) => void): Unsub;
   getDictionary(): Promise<DictionaryEntry[]>;
   setDictionary(list: DictionaryEntry[]): Promise<DictionaryEntry[]>;
   toggleDictation(): Promise<void>;
@@ -186,6 +188,7 @@ function createMock(): WisprApi {
     launchAtLogin: false,
     theme: (params.get("theme") as Theme) || "system",
     micDeviceId: "default",
+    historyRetention: "forever",
     showBubble: true,
     hasKey: { openai: true },
   };
@@ -236,6 +239,7 @@ function createMock(): WisprApi {
       history = [];
     },
     onHistoryAdded: on("history"),
+    onHistoryReplaced: on("historyReplaced"),
     getDictionary: async () => dictionary,
     setDictionary: async (list) => (dictionary = list),
     toggleDictation: async () => {

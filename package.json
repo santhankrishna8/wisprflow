@@ -1,7 +1,7 @@
 {
   "name": "wisprflow",
   "productName": "WisprFlow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Privacy-first voice dictation for your desktop. Press a hotkey, speak, and polished text appears at your cursor.",
   "main": "electron/main.cjs",
   "private": true,

@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS = {
   launchAtLogin: false,
   theme: "system", // system | light | dark
   micDeviceId: "default",
+  historyRetention: "forever", // forever | 3h | 24h | 7d | 30d
   showBubble: true, // always-on-top floating dictation button
   bubblePosition: null, // { x, y } in screen coordinates
   keys: {}, // provider -> encrypted key (base64)
@@ -108,6 +109,15 @@ function createStore(app, safeStorage) {
       data.history = data.history.filter((h) => h.id !== id);
       save();
     },
+    /** Remove entries older than maxAgeMs. Returns how many were removed. */
+    pruneHistory(maxAgeMs, now = Date.now()) {
+      if (!maxAgeMs) return 0;
+      const before = data.history.length;
+      data.history = data.history.filter((h) => now - Date.parse(h.createdAt) < maxAgeMs);
+      const removed = before - data.history.length;
+      if (removed) save();
+      return removed;
+    },
     clearHistory() {
       data.history = [];
       save();
@@ -129,4 +139,12 @@ function createStore(app, safeStorage) {
   };
 }
 
-module.exports = { createStore, DEFAULT_SETTINGS };
+const RETENTION_MS = {
+  forever: 0,
+  "3h": 3 * 3600_000,
+  "24h": 24 * 3600_000,
+  "7d": 7 * 86400_000,
+  "30d": 30 * 86400_000,
+};
+
+module.exports = { createStore, DEFAULT_SETTINGS, RETENTION_MS };

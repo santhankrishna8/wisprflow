@@ -79,7 +79,7 @@ export default function App() {
           <div className="drag absolute inset-x-0 top-0 z-10 h-12" />
           <div key={route} className="scroll animate-fade-up flex-1">
             {route === "home" && <Home settings={settings} history={history} state={state} onNavigate={setRoute} />}
-            {route === "history" && <History history={history} onDelete={remove} onClear={clear} />}
+            {route === "history" && <History history={history} onDelete={remove} onClear={clear} retention={settings.historyRetention} />}
             {route === "dictionary" && <Dictionary />}
             {route === "settings" && <SettingsPage settings={settings} update={update} refresh={refresh} />}
           </div>

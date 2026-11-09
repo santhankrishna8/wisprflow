@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("wispr", {
   deleteHistory: (id) => ipcRenderer.invoke("history:delete", id),
   clearHistory: () => ipcRenderer.invoke("history:clear"),
   onHistoryAdded: on("history:added"),
+  onHistoryReplaced: on("history:replaced"),
 
   getDictionary: () => ipcRenderer.invoke("dictionary:get"),
   setDictionary: (list) => ipcRenderer.invoke("dictionary:set", list),

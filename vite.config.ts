@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   base: "./",
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   plugins: [react(), tailwindcss()],
   server: { port: 5173, strictPort: true },
   build: {

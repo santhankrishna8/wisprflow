@@ -17,7 +17,7 @@ const {
 } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { createStore } = require("./store.cjs");
+const { createStore, RETENTION_MS } = require("./store.cjs");
 const ai = require("./ai.cjs");
 const { pasteText } = require("./paste.cjs");
 const { createLocalWhisper } = require("./localWhisper.cjs");
@@ -327,6 +327,7 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       cleaned: text !== raw,
     });
     broadcast("history:added", entry);
+    pruneHistory();
 
     setState("done", cleanupError ? "Pasted raw text — cleanup failed" : settings.autoPaste ? "Pasted" : "Copied");
     if (settings.autoPaste) {
@@ -349,6 +350,12 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
   } finally {
     if (activeAbort === abort) activeAbort = null;
   }
+}
+
+/** Delete history older than the user's retention setting and tell the UI. */
+function pruneHistory() {
+  const removed = store.pruneHistory(RETENTION_MS[store.raw().historyRetention] || 0);
+  if (removed) broadcast("history:replaced", store.getHistory());
 }
 
 function notify(title, body) {
@@ -483,6 +490,7 @@ function registerIpc() {
     if (("localModel" in patch && patch.localModel !== prev.localModel) || (patch.sttProvider && patch.sttProvider !== "local")) {
       local.stop();
     }
+    if ("historyRetention" in patch) pruneHistory();
     if ("showBubble" in patch || "onboarded" in patch) {
       setBubbleVisible(next.showBubble && store.raw().onboarded);
       updateTray();
@@ -616,6 +624,8 @@ app.whenReady().then(() => {
   createMainWindow();
   createOverlayWindow();
   createBubbleWindow();
+  pruneHistory();
+  setInterval(pruneHistory, 5 * 60_000).unref?.();
   screen.on("display-removed", () => {
     if (bubbleWindow) bubbleWindow.setBounds({ ...clampBubble(store.raw().bubblePosition || defaultBubblePosition(), true), ...BUBBLE });
   });

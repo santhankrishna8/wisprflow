@@ -117,6 +117,25 @@ function General({ settings, update }: Props) {
       </section>
 
       <section>
+        <SectionTitle title="Privacy" />
+        <Card>
+          <Row title="Keep history" description="Older dictations are deleted automatically. Stats only count what's kept.">
+            <Select
+              value={settings.historyRetention}
+              onChange={(e) => update({ historyRetention: e.target.value as Settings["historyRetention"] })}
+              className="w-[180px]"
+            >
+              <option value="forever">Forever</option>
+              <option value="3h">3 hours</option>
+              <option value="24h">24 hours</option>
+              <option value="7d">7 days</option>
+              <option value="30d">30 days</option>
+            </Select>
+          </Row>
+        </Card>
+      </section>
+
+      <section>
         <SectionTitle title="System" />
         <Card>
           <Row title="Microphone">
@@ -500,7 +519,10 @@ function About() {
         <Logo size={48} />
         <div>
           <div className="text-[15px] font-semibold">WisprFlow</div>
-          <div className="text-[12.5px] text-fg-3">Version {info?.version ?? "—"}</div>
+          <div className="text-[12.5px] text-fg-3">
+            Version {info?.version ?? "—"} · built{" "}
+            {new Date(__BUILD_TIME__).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+          </div>
         </div>
       </Card>
       <Card>
