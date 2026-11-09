@@ -26,7 +26,7 @@ export default function Home({
 }) {
   const stats = useMemo(() => computeStats(history), [history]);
   const recent = history.slice(0, 4);
-  const needsKey = !settings.hasKey?.[settings.sttProvider] && settings.sttProvider !== "custom";
+  const needsKey = !settings.hasKey?.[settings.sttProvider] && settings.sttProvider !== "custom" && settings.sttProvider !== "local";
 
   return (
     <div className="mx-auto max-w-[920px] px-10 pt-14 pb-12">

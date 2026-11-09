@@ -1,4 +1,5 @@
 // Microphone capture + level metering for the overlay.
+import { blobToWav16k } from "./wav";
 
 export interface Recording {
   stop(): Promise<{ audio: ArrayBuffer; mimeType: string; durationMs: number }>;
@@ -11,7 +12,7 @@ function pickMime() {
   return types.find((t) => MediaRecorder.isTypeSupported(t)) || "";
 }
 
-export async function startRecording(deviceId?: string): Promise<Recording> {
+export async function startRecording(deviceId?: string, wav = false): Promise<Recording> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       deviceId: deviceId && deviceId !== "default" ? { exact: deviceId } : undefined,
@@ -61,6 +62,14 @@ export async function startRecording(deviceId?: string): Promise<Recording> {
         recorder.onstop = async () => {
           release();
           const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || "audio/webm" });
+          if (wav && blob.size) {
+            try {
+              resolve({ audio: await blobToWav16k(blob), mimeType: "audio/wav", durationMs });
+              return;
+            } catch {
+              /* fall through with the original encoding */
+            }
+          }
           resolve({ audio: await blob.arrayBuffer(), mimeType: blob.type, durationMs });
         };
         recorder.stop();

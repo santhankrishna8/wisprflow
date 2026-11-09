@@ -17,7 +17,8 @@ import {
   cx,
   useToast,
 } from "../components/ui";
-import { LANGUAGES, LLM_PROVIDERS, STT_PROVIDERS, TONES } from "../lib/providers";
+import { LANGUAGES, LLM_PROVIDERS, OLLAMA_PRESET, STT_PROVIDERS, TONES } from "../lib/providers";
+import { LocalModelPicker, useLocalModels } from "../components/LocalModels";
 import { isMac, wispr } from "../lib/wispr";
 import type { LlmProvider, Settings, SttProvider, Theme } from "../lib/wispr";
 
@@ -170,7 +171,7 @@ function ProviderCards<T extends string>({
   options: Array<{ value: T; name: string; blurb?: string }>;
 }) {
   return (
-    <div className={cx("grid gap-2.5", options.length > 3 ? "grid-cols-4" : "grid-cols-3")}>
+    <div className={cx("grid gap-2.5", options.length === 3 ? "grid-cols-3" : options.length > 4 || options.some((o) => o.blurb) ? "grid-cols-2" : "grid-cols-4")}>
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -202,7 +203,7 @@ function ProviderCards<T extends string>({
 }
 
 function TestButton({ kind }: { kind: "stt" | "llm" }) {
-  const [state, setState] = useState<{ loading?: boolean; ok?: boolean; error?: string }>({});
+  const [state, setState] = useState<{ loading?: boolean; ok?: boolean; error?: string; message?: string }>({});
   return (
     <div className="flex items-center gap-3">
       <Button
@@ -218,7 +219,7 @@ function TestButton({ kind }: { kind: "stt" | "llm" }) {
       </Button>
       {state.ok && (
         <span className="animate-fade-up flex items-center gap-1 text-[12.5px] font-medium text-success">
-          <Check className="size-4" /> Connected
+          <Check className="size-4" /> {(state as { message?: string }).message || "Connected"}
         </span>
       )}
       {state.error && (
@@ -267,6 +268,9 @@ function Transcription({ settings, update, refresh }: Props) {
           options={(Object.keys(STT_PROVIDERS) as SttProvider[]).map((k) => ({ value: k, name: STT_PROVIDERS[k].name, blurb: STT_PROVIDERS[k].blurb }))}
         />
       </section>
+      {settings.sttProvider === "local" ? (
+        <LocalSection settings={settings} update={update} />
+      ) : (
       <Card className="flex flex-col gap-5 p-5">
         {settings.sttProvider === "custom" && (
           <Field label="Base URL" hint="OpenAI-compatible endpoint. We'll call {base}/audio/transcriptions.">
@@ -298,6 +302,36 @@ function Transcription({ settings, update, refresh }: Props) {
         <div className="border-t border-line pt-4">
           <TestButton kind="stt" />
         </div>
+      </Card>
+      )}
+    </div>
+  );
+}
+
+function LocalSection({ settings, update }: Pick<Props, "settings" | "update">) {
+  const local = useLocalModels();
+  const ready = local.models.some((m) => m.id === settings.localModel && m.downloaded);
+  return (
+    <div className="flex flex-col gap-5">
+      <section>
+        <SectionTitle title="Model" description="Bigger models are more accurate but slower. You can switch any time." />
+        <LocalModelPicker value={settings.localModel} onChange={(id) => update({ localModel: id })} state={local} />
+      </section>
+      <Card className="flex flex-col gap-5 p-5">
+        <Field label="Language" hint="Picking your language is faster and more accurate than auto-detect.">
+          <Select value={settings.language} onChange={(e) => update({ language: e.target.value })}>
+            {LANGUAGES.map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {ready && (
+          <div className="border-t border-line pt-4">
+            <TestButton kind="stt" />
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -350,8 +384,19 @@ function Cleanup({ settings, update, refresh }: Props) {
           />
           <Card className="mt-3 flex flex-col gap-5 p-5">
             {settings.llmProvider === "custom" && (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-4 py-3 text-[12.5px] text-fg-2">
+                <span>
+                  Using <span className="font-semibold text-fg">Ollama</span>? Install it, run <code className="font-mono">ollama pull llama3.2:3b</code>, then:
+                </span>
+                <Button size="sm" onClick={() => update(OLLAMA_PRESET)}>
+                  Use Ollama
+                </Button>
+              </div>
+            )}
+            {settings.llmProvider === "custom" && (
               <Field label="Base URL" hint="OpenAI-compatible chat endpoint, e.g. Ollama or LM Studio.">
                 <Input
+                  key={settings.llmBaseUrl}
                   defaultValue={settings.llmBaseUrl}
                   onBlur={(e) => update({ llmBaseUrl: e.target.value.trim() })}
                   placeholder="http://localhost:11434/v1"

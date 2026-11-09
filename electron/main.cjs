@@ -13,18 +13,21 @@ const {
   shell,
   systemPreferences,
   Notification,
+  net,
 } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore } = require("./store.cjs");
 const ai = require("./ai.cjs");
 const { pasteText } = require("./paste.cjs");
+const { createLocalWhisper } = require("./localWhisper.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
 const DEV_URL = "http://localhost:5173";
 const isMac = process.platform === "darwin";
 
 let store;
+let local; // on-device whisper engine
 let mainWindow = null;
 let overlayWindow = null;
 let bubbleWindow = null;
@@ -216,10 +219,14 @@ function startDictation() {
   overlayWindow.showInactive();
   setState("recording");
   registerEscape(true);
+  const s = store.raw();
   overlayWindow.webContents.send("dictation:start", {
-    micDeviceId: store.raw().micDeviceId,
-    sounds: store.raw().soundEffects,
+    micDeviceId: s.micDeviceId,
+    sounds: s.soundEffects,
+    wav: s.sttProvider === "local", // whisper.cpp wants 16 kHz WAV
   });
+  // Load the local model while the user is still speaking.
+  if (s.sttProvider === "local") local.ensureServer(s.localModel).catch(() => {});
 }
 
 function stopDictation() {
@@ -264,20 +271,32 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       overlayWindow?.hide();
       return { ok: false, error: "Too short — hold on a little longer." };
     }
-    let raw = await ai.transcribe({
-      audio: Buffer.from(audio),
-      mimeType,
-      settings,
-      apiKey: store.getKey(settings.sttProvider),
-      dictionary,
-      signal: abort.signal,
-    });
+    const vocab = dictionary.map((d) => d.to || d.word).filter(Boolean);
+    let raw =
+      settings.sttProvider === "local"
+        ? await local.transcribe({
+            wav: Buffer.from(audio),
+            modelId: settings.localModel,
+            language: settings.language,
+            prompt: vocab.length ? `Vocabulary: ${vocab.slice(0, 60).join(", ")}.` : "",
+            signal: abort.signal,
+          })
+        : await ai.transcribe({
+            audio: Buffer.from(audio),
+            mimeType,
+            settings,
+            apiKey: store.getKey(settings.sttProvider),
+            dictionary,
+            signal: abort.signal,
+          });
     raw = ai.applyDictionary(raw, dictionary);
     if (!raw) throw new Error("No speech detected.");
 
     let text = raw;
     let cleanupError = null;
-    if (settings.cleanupEnabled && settings.tone !== "verbatim") {
+    // Skip cleanup quietly when its provider has no key yet (e.g. fully local setups).
+    const cleanupReady = settings.llmProvider === "custom" ? Boolean(settings.llmBaseUrl) : Boolean(store.getKey(settings.llmProvider));
+    if (settings.cleanupEnabled && settings.tone !== "verbatim" && cleanupReady) {
       try {
         text = ai.applyDictionary(
           await ai.cleanup({
@@ -407,6 +426,15 @@ function showMain(route) {
 
 async function testConnection(_e, kind) {
   const s = store.raw();
+  if (kind === "stt" && s.sttProvider === "local") {
+    try {
+      const t0 = Date.now();
+      await local.ensureServer(s.localModel);
+      return { ok: true, message: `Engine ready in ${((Date.now() - t0) / 1000).toFixed(1)}s` };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
   const provider = kind === "stt" ? s.sttProvider : s.llmProvider;
   const key = store.getKey(provider);
   const bases = {
@@ -451,6 +479,9 @@ function registerIpc() {
       } catch {
         /* unsupported */
       }
+    }
+    if (("localModel" in patch && patch.localModel !== prev.localModel) || (patch.sttProvider && patch.sttProvider !== "local")) {
+      local.stop();
     }
     if ("showBubble" in patch || "onboarded" in patch) {
       setBubbleVisible(next.showBubble && store.raw().onboarded);
@@ -541,6 +572,20 @@ function registerIpc() {
     hideOverlaySoon(3200);
   });
 
+  ipcMain.handle("local:info", () => ({ available: local.engineAvailable(), running: local.isRunning(), model: local.runningModel() }));
+  ipcMain.handle("local:list", () => local.listModels());
+  ipcMain.handle("local:download", async (e, id) => {
+    try {
+      return await local.downloadModel(id, (p) => {
+        if (!e.sender.isDestroyed()) e.sender.send("local:progress", p);
+      });
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  ipcMain.handle("local:cancel", (_e, id) => local.cancelDownload(id));
+  ipcMain.handle("local:delete", (_e, id) => local.deleteModel(id));
+
   ipcMain.handle("clipboard:write", (_e, text) => clipboard.writeText(String(text)));
   ipcMain.handle("permissions:get", permissions);
   ipcMain.handle("permissions:requestMic", async () => (isMac ? systemPreferences.askForMediaAccess("microphone") : true));
@@ -558,6 +603,13 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   store = createStore(app, safeStorage);
+  local = createLocalWhisper({
+    binDir: app.isPackaged
+      ? path.join(process.resourcesPath, "whisper")
+      : path.join(__dirname, "..", "vendor", "whisper", `${process.platform}-${process.arch}`),
+    modelsDir: path.join(app.getPath("userData"), "models"),
+    fetchImpl: (url, opts) => net.fetch(url, opts),
+  });
   nativeTheme.themeSource = store.raw().theme || "system";
   if (isMac) app.dock?.setIcon?.(path.join(__dirname, "assets", "icon.png"));
   registerIpc();
@@ -584,7 +636,10 @@ app.on("before-quit", () => {
   quitting = true;
   store?.flush();
 });
-app.on("will-quit", () => globalShortcut.unregisterAll());
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+  local?.stop();
+});
 app.on("window-all-closed", () => {
   /* keep running in the tray */
 });

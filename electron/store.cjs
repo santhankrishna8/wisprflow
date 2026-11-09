@@ -7,7 +7,8 @@ const DEFAULT_SETTINGS = {
   onboarded: false,
   hotkey: "CommandOrControl+Shift+Space",
   language: "auto",
-  sttProvider: "openai", // openai | groq | custom
+  sttProvider: "openai", // local | openai | groq | custom
+  localModel: "base", // on-device whisper model id
   sttModel: "whisper-1",
   sttBaseUrl: "",
   cleanupEnabled: true,

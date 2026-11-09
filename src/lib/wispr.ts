@@ -1,7 +1,7 @@
 // Typed bridge to the Electron main process, with an in-browser mock so the UI
 // can be developed and previewed with `npm run dev:web`.
 
-export type SttProvider = "openai" | "groq" | "custom";
+export type SttProvider = "local" | "openai" | "groq" | "custom";
 export type LlmProvider = "openai" | "anthropic" | "groq" | "custom";
 export type Tone = "natural" | "professional" | "casual" | "verbatim";
 export type Theme = "system" | "light" | "dark";
@@ -12,6 +12,7 @@ export interface Settings {
   hotkey: string;
   language: string;
   sttProvider: SttProvider;
+  localModel: string;
   sttModel: string;
   sttBaseUrl: string;
   cleanupEnabled: boolean;
@@ -51,6 +52,23 @@ export interface DictationState {
   message: string;
 }
 
+export interface LocalModel {
+  id: string;
+  name: string;
+  size: string;
+  blurb: string;
+  recommended: boolean;
+  downloaded: boolean;
+  downloading: boolean;
+}
+
+export interface LocalProgress {
+  id: string;
+  received: number;
+  total: number;
+  done?: boolean;
+}
+
 export interface Permissions {
   platform: string;
   microphone: string;
@@ -64,7 +82,7 @@ export interface WisprApi {
   getSettings(): Promise<Settings>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
   setKey(provider: string, value: string): Promise<Settings>;
-  testConnection(kind: "stt" | "llm"): Promise<{ ok: boolean; error?: string }>;
+  testConnection(kind: "stt" | "llm"): Promise<{ ok: boolean; error?: string; message?: string }>;
   setHotkey(accel: string): Promise<{ ok: boolean; error?: string }>;
   suspendHotkey(suspend: boolean): Promise<void>;
   onSettings(cb: (s: Settings) => void): Unsub;
@@ -78,7 +96,7 @@ export interface WisprApi {
   cancelDictation(): Promise<void>;
   getState(): Promise<DictationState>;
   onState(cb: (s: DictationState) => void): Unsub;
-  onStart(cb: (opts: { micDeviceId: string; sounds: boolean }) => void): Unsub;
+  onStart(cb: (opts: { micDeviceId: string; sounds: boolean; wav?: boolean }) => void): Unsub;
   onStop(cb: () => void): Unsub;
   onCancel(cb: () => void): Unsub;
   processAudio(p: { audio: ArrayBuffer; mimeType: string; durationMs: number }): Promise<{
@@ -88,6 +106,12 @@ export interface WisprApi {
   }>;
   setOverlayInteractive(on: boolean): void;
   recorderError(message: string): void;
+  localInfo(): Promise<{ available: boolean; running: boolean; model: string | null }>;
+  localModels(): Promise<LocalModel[]>;
+  downloadLocalModel(id: string): Promise<{ ok: boolean; error?: string; cancelled?: boolean }>;
+  cancelLocalDownload(id: string): Promise<void>;
+  deleteLocalModel(id: string): Promise<void>;
+  onLocalProgress(cb: (p: LocalProgress) => void): Unsub;
   bubbleDragStart(): void;
   bubbleDragMove(): void;
   bubbleDragEnd(): Promise<{ moved: boolean }>;
@@ -147,7 +171,8 @@ function createMock(): WisprApi {
     onboarded: !params.has("onboarding"),
     hotkey: "CommandOrControl+Shift+Space",
     language: "auto",
-    sttProvider: "openai",
+    sttProvider: (params.get("stt") as SttProvider) || "openai",
+    localModel: "base",
     sttModel: "whisper-1",
     sttBaseUrl: "",
     cleanupEnabled: true,
@@ -165,6 +190,13 @@ function createMock(): WisprApi {
     hasKey: { openai: true },
   };
   let state: DictationState = { status: "idle", message: "" };
+  const localModels = [
+    { id: "tiny", name: "Tiny", size: "75 MB", blurb: "Fastest. Fine for short, clear notes.", recommended: false },
+    { id: "base", name: "Base", size: "142 MB", blurb: "Quick and accurate enough for most dictation.", recommended: true },
+    { id: "small", name: "Small", size: "466 MB", blurb: "Noticeably more accurate. Great on modern CPUs.", recommended: false },
+    { id: "turbo-q5", name: "Large v3 Turbo", size: "574 MB", blurb: "Near-best accuracy. Slower without a strong CPU.", recommended: false },
+  ];
+  const downloaded = new Set<string>(params.has("nomodels") ? [] : ["base"]);
   const setState = (s: Status, message = "") => {
     state = { status: s, message };
     emit("state", state);
@@ -241,6 +273,20 @@ function createMock(): WisprApi {
     processAudio: async () => ({ ok: true }),
     setOverlayInteractive: () => {},
     recorderError: () => {},
+    localInfo: async () => ({ available: true, running: false, model: null }),
+    localModels: async () =>
+      localModels.map((m) => ({ ...m, downloaded: downloaded.has(m.id), downloading: false })),
+    downloadLocalModel: async (id) => {
+      for (let i = 1; i <= 20; i++) {
+        await wait(80);
+        emit("localProgress", { id, received: i * 5e6, total: 1e8, done: i === 20 });
+      }
+      downloaded.add(id);
+      return { ok: true };
+    },
+    cancelLocalDownload: async () => {},
+    deleteLocalModel: async (id) => void downloaded.delete(id),
+    onLocalProgress: on("localProgress"),
     bubbleDragStart: () => {},
     bubbleDragMove: () => {},
     bubbleDragEnd: async () => {

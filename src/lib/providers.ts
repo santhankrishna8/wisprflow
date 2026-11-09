@@ -1,6 +1,11 @@
 import type { LlmProvider, SttProvider, Tone } from "./wispr";
 
 export const STT_PROVIDERS: Record<SttProvider, { name: string; blurb: string; models: string[]; defaultModel?: string; keyUrl?: string; keyPrefix?: string }> = {
+  local: {
+    name: "On this PC",
+    blurb: "Private and offline. Free, no API key. Runs only while you dictate.",
+    models: [],
+  },
   openai: {
     name: "OpenAI",
     blurb: "Whisper & GPT-4o transcribe. Accurate in 50+ languages.",
@@ -34,6 +39,11 @@ export const LLM_PROVIDERS: Record<LlmProvider, { name: string; models: string[]
   groq: { name: "Groq", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"], keyUrl: "https://console.groq.com/keys", keyPrefix: "gsk_…" },
   custom: { name: "Self-hosted", models: [], defaultModel: "llama3.2:3b" },
 };
+
+/** One-click preset for a local Ollama install (cleanup only). */
+export const OLLAMA_PRESET = { llmProvider: "custom" as const, llmBaseUrl: "http://localhost:11434/v1", llmModel: "llama3.2:3b" };
+
+
 
 export const TONES: Array<{ value: Tone; label: string; sample: string }> = [
   { value: "natural", label: "Natural", sample: "Let's meet at 5 — I'll bring the slides." },

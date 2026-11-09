@@ -6,6 +6,7 @@ import { STT_PROVIDERS } from "../lib/providers";
 import { isMac, wispr } from "../lib/wispr";
 import type { DictationState, Settings, SttProvider } from "../lib/wispr";
 import { ProviderCards, KeyLink, TestButton } from "./Settings";
+import { LocalModelPicker, useLocalModels } from "../components/LocalModels";
 
 type Step = "welcome" | "permissions" | "provider" | "hotkey" | "try";
 const STEPS: Step[] = ["welcome", "permissions", "provider", "hotkey", "try"];
@@ -19,12 +20,18 @@ interface Props {
 
 export default function Onboarding({ settings, update, refresh, state }: Props) {
   const [step, setStep] = useState<Step>("welcome");
+  const local = useLocalModels();
   const i = STEPS.indexOf(step);
   const next = () => setStep(STEPS[Math.min(STEPS.length - 1, i + 1)]);
   const back = () => setStep(STEPS[Math.max(0, i - 1)]);
   const finish = () => update({ onboarded: true });
 
-  const keyReady = settings.sttProvider === "custom" ? Boolean(settings.sttBaseUrl) : Boolean(settings.hasKey?.[settings.sttProvider]);
+  const keyReady =
+    settings.sttProvider === "local"
+      ? local.models.some((m) => m.id === settings.localModel && m.downloaded)
+      : settings.sttProvider === "custom"
+        ? Boolean(settings.sttBaseUrl)
+        : Boolean(settings.hasKey?.[settings.sttProvider]);
 
   return (
     <div className="flex h-full">
@@ -34,17 +41,17 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
           <span className="text-[14px] font-semibold tracking-tight">WisprFlow</span>
         </div>
 
-        <div className="no-drag flex flex-1 items-center px-10">
-          <div key={step} className="animate-fade-up w-full max-w-[480px]">
+        <div className="no-drag scroll flex min-h-0 flex-1 flex-col px-10">
+          <div key={step} className="animate-fade-up my-auto w-full max-w-[480px] py-8">
             {step === "welcome" && <Welcome />}
             {step === "permissions" && <Permissions />}
-            {step === "provider" && <Provider settings={settings} update={update} refresh={refresh} />}
+            {step === "provider" && <Provider settings={settings} update={update} refresh={refresh} local={local} />}
             {step === "hotkey" && <HotkeyStep settings={settings} />}
             {step === "try" && <TryIt settings={settings} state={state} />}
           </div>
         </div>
 
-        <div className="no-drag flex items-center justify-between px-10 pb-9">
+        <div className="no-drag flex items-center justify-between border-t border-line px-10 py-5">
           <div className="flex gap-1.5">
             {STEPS.map((s, idx) => (
               <span
@@ -190,12 +197,12 @@ function Permissions() {
   );
 }
 
-function Provider({ settings, update, refresh }: Omit<Props, "state">) {
+function Provider({ settings, update, refresh, local }: Omit<Props, "state"> & { local: ReturnType<typeof useLocalModels> }) {
   const p = STT_PROVIDERS[settings.sttProvider];
   return (
     <>
       <Heading eyebrow="Step 2 of 4" title="Connect a transcription engine">
-        Bring your own key. Audio goes straight to the provider you pick.
+        Run it privately on this PC for free, or bring a key for a cloud provider.
       </Heading>
       <ProviderCards
         value={settings.sttProvider}
@@ -203,11 +210,18 @@ function Provider({ settings, update, refresh }: Omit<Props, "state">) {
           update({
             sttProvider: v,
             sttModel: STT_PROVIDERS[v].models[0] || STT_PROVIDERS[v].defaultModel || settings.sttModel,
-            ...(v !== "custom" ? { llmProvider: v, llmModel: v === "groq" ? "llama-3.3-70b-versatile" : "gpt-4o-mini" } : {}),
+            ...(v === "openai" || v === "groq"
+              ? { llmProvider: v, llmModel: v === "groq" ? "llama-3.3-70b-versatile" : "gpt-4o-mini", cleanupEnabled: true }
+              : {}),
           })
         }
         options={(Object.keys(STT_PROVIDERS) as SttProvider[]).map((k) => ({ value: k, name: STT_PROVIDERS[k].name, blurb: STT_PROVIDERS[k].blurb }))}
       />
+      {settings.sttProvider === "local" ? (
+        <div className="mt-5">
+          <LocalModelPicker value={settings.localModel} onChange={(id) => update({ localModel: id })} state={local} />
+        </div>
+      ) : (
       <div className="mt-5 flex flex-col gap-4">
         {settings.sttProvider === "custom" && (
           <Field label="Base URL">
@@ -234,6 +248,7 @@ function Provider({ settings, update, refresh }: Omit<Props, "state">) {
         </Field>
         <TestButton kind="stt" />
       </div>
+      )}
     </>
   );
 }

@@ -10,7 +10,8 @@
 - **Floating button** – a small always-on-top button on the edge of your screen. Click it to start/stop listening, drag it anywhere (it snaps to the nearest edge and remembers its spot), hover and press × to hide it. Toggle it in Settings → General or from the tray menu.
 - **Floating recording pill** – a live waveform, timer, and cancel/finish buttons that never steal focus from the app you're typing in.
 - **AI polish** – removes filler words, fixes punctuation, applies spoken self-corrections ("4, actually 5" → "5") and formats lists. Choose a style: Natural, Professional, Casual or Verbatim.
-- **Bring your own provider** – OpenAI (Whisper / GPT-4o transcribe) or Groq (Whisper Large v3) for speech-to-text, and OpenAI, Anthropic Claude, or Groq for cleanup. Any **OpenAI-compatible self-hosted server** (Speaches, faster-whisper-server, Ollama, LM Studio) works too, so you can run fully offline.
+- **Free, private, offline transcription** – choose **On this PC** and WisprFlow runs Whisper (whisper.cpp) on your own computer. No API key, no Docker, no cost. Pick a model (Tiny 75 MB → Large v3 Turbo 574 MB) and it downloads once. The engine only runs while you dictate and shuts itself down after 10 idle minutes.
+- **Or bring your own provider** – OpenAI (Whisper / GPT-4o transcribe) or Groq (Whisper Large v3) for speech-to-text, and OpenAI, Anthropic Claude, or Groq for cleanup. Any **OpenAI-compatible self-hosted server** (Speaches, faster-whisper-server, Ollama, LM Studio) works too, so you can run fully offline.
 - **Personal dictionary** – names, jargon and replacements, used as transcription hints and enforced during cleanup.
 - **History & stats** – searchable history grouped by day, with the original transcript next to the polished one, plus words dictated, time saved, speaking pace and streak.
 - **Thoughtful details** – onboarding, light/dark/system themes, clipboard restore, sound cues, a tray menu, launch at login, and a microphone picker.
@@ -49,6 +50,14 @@ Use `dist:mac`, `dist:win` or `dist:linux` to build for one platform. Output goe
 
 You can also build the Windows installer on GitHub: open **Actions → Build Windows installer → Run workflow**, then download `WisprFlow-Windows-installer` from the finished run.
 
+## On-device transcription
+
+The installers bundle a CPU build of `whisper-server` (whisper.cpp, pinned and SHA-256 verified by `scripts/fetch-whisper.cjs`). Models download from Hugging Face into WisprFlow's data folder the first time you choose them. When you start recording, WisprFlow starts the engine so the model loads while you speak; it reuses it for back-to-back dictations and stops it after 10 minutes of inactivity or when you quit.
+
+For AI cleanup without the cloud, install [Ollama](https://ollama.com), run `ollama pull llama3.2:3b`, then pick **Self-hosted → Use Ollama** under Settings → AI cleanup. If cleanup isn't configured, WisprFlow pastes the raw transcript.
+
+The Windows CI build smoke-tests this end to end: it downloads the Tiny model and transcribes a speech sample with the packaged engine.
+
 ## Platform notes
 
 - **macOS** – grant Microphone and Accessibility access (onboarding walks you through it). Accessibility is needed to paste into other apps.
@@ -62,6 +71,7 @@ electron/
   main.cjs      windows, global shortcut, tray, dictation pipeline, IPC
   preload.cjs   the typed `window.wispr` bridge
   ai.cjs        speech-to-text + LLM cleanup (OpenAI-compatible & Anthropic)
+  localWhisper.cjs  on-device engine: model downloads, on-demand whisper-server, idle shutdown
   paste.cjs     clipboard + simulated paste per platform
   store.cjs     JSON persistence with keychain-encrypted API keys
 src/

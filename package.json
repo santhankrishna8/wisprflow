@@ -7,17 +7,18 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently -k -n vite,electron -c magenta,cyan \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "node scripts/fetch-whisper.cjs && concurrently -k -n vite,electron -c magenta,cyan \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:web": "vite",
     "build:renderer": "vite build",
-    "start": "npm run build:renderer && electron .",
+    "start": "node scripts/fetch-whisper.cjs && npm run build:renderer && electron .",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.cjs",
-    "pack": "npm run build:renderer && electron-builder --dir",
-    "dist": "npm run build:renderer && electron-builder --publish never",
-    "dist:mac": "npm run build:renderer && electron-builder --mac --publish never",
-    "dist:win": "npm run build:renderer && electron-builder --win --publish never",
-    "dist:linux": "npm run build:renderer && electron-builder --linux --publish never"
+    "pack": "node scripts/fetch-whisper.cjs && npm run build:renderer && electron-builder --dir",
+    "dist": "node scripts/fetch-whisper.cjs && npm run build:renderer && electron-builder --publish never",
+    "dist:mac": "node scripts/fetch-whisper.cjs --platform darwin --arch arm64 && node scripts/fetch-whisper.cjs --platform darwin --arch x64 && npm run build:renderer && electron-builder --mac --publish never",
+    "dist:win": "node scripts/fetch-whisper.cjs --platform win32 --arch x64 && npm run build:renderer && electron-builder --win --publish never",
+    "dist:linux": "node scripts/fetch-whisper.cjs --platform linux --arch x64 && npm run build:renderer && electron-builder --linux --publish never",
+    "fetch:whisper": "node scripts/fetch-whisper.cjs"
   },
   "build": {
     "appId": "com.wisprflow.app",
@@ -35,7 +36,17 @@
       "category": "public.app-category.productivity",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "WisprFlow uses the microphone to transcribe your dictation."
-      }
+      },
+      "extraResources": [
+        {
+          "from": "vendor/whisper/darwin-${arch}",
+          "to": "whisper",
+          "filter": [
+            "**/*",
+            "!.version"
+          ]
+        }
+      ]
     },
     "win": {
       "target": [
@@ -46,14 +57,34 @@
           ]
         }
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "extraResources": [
+        {
+          "from": "vendor/whisper/win32-x64",
+          "to": "whisper",
+          "filter": [
+            "**/*",
+            "!.version"
+          ]
+        }
+      ]
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "extraResources": [
+        {
+          "from": "vendor/whisper/linux-x64",
+          "to": "whisper",
+          "filter": [
+            "**/*",
+            "!.version"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -75,6 +106,7 @@
     "cross-env": "^10.1.0",
     "electron": "^45.2.3",
     "electron-builder": "^26.18.0",
+    "extract-zip": "^2.0.1",
     "lucide-react": "^1.70.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

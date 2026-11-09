@@ -18,6 +18,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run dist:win
+      - name: Smoke-test on-device transcription in the packaged app
+        run: node scripts/smoke-local-whisper.cjs release/win-unpacked/resources/whisper
       - uses: actions/upload-artifact@v4
         with:
           name: WisprFlow-Windows-installer

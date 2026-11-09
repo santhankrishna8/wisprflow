@@ -23,11 +23,11 @@ export default function Overlay() {
     }
     const offs = [
       wispr.onState(setState),
-      wispr.onStart(async ({ micDeviceId, sounds }) => {
+      wispr.onStart(async ({ micDeviceId, sounds, wav }) => {
         soundsRef.current = sounds;
         recRef.current?.cancel();
         try {
-          recRef.current = await startRecording(micDeviceId);
+          recRef.current = await startRecording(micDeviceId, wav);
           if (sounds) chime("start");
         } catch (err) {
           recRef.current = null;

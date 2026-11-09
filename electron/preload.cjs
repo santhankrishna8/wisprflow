@@ -44,6 +44,13 @@ contextBridge.exposeInMainWorld("wispr", {
   bubbleDragEnd: () => ipcRenderer.invoke("bubble:dragEnd"),
   hideBubble: () => ipcRenderer.invoke("bubble:hide"),
 
+  localInfo: () => ipcRenderer.invoke("local:info"),
+  localModels: () => ipcRenderer.invoke("local:list"),
+  downloadLocalModel: (id) => ipcRenderer.invoke("local:download", id),
+  cancelLocalDownload: (id) => ipcRenderer.invoke("local:cancel", id),
+  deleteLocalModel: (id) => ipcRenderer.invoke("local:delete", id),
+  onLocalProgress: on("local:progress"),
+
   copy: (text) => ipcRenderer.invoke("clipboard:write", text),
   getPermissions: () => ipcRenderer.invoke("permissions:get"),
   requestMic: () => ipcRenderer.invoke("permissions:requestMic"),
