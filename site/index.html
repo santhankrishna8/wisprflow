@@ -1,1263 +1,453 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WisprFlow — Voice dictation that types for you</title>
-    <meta
-      name="description"
-      content="Press a shortcut, speak naturally, and clean, punctuated text appears in any app. Free, open source, and private — runs fully offline on your PC."
-    />
-    <meta property="og:title" content="WisprFlow — Voice dictation that types for you" />
-    <meta property="og:description" content="Speak in any app and get polished text. Free, private, works offline." />
-    <meta property="og:image" content="assets/app-home-dark.jpg" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#0b0b10" />
-    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-      :root {
-        --bg: #0b0b10;
-        --bg-2: #111118;
-        --card: #15151d;
-        --line: rgba(255, 255, 255, 0.08);
-        --line-2: rgba(255, 255, 255, 0.14);
-        --text: #ededf2;
-        --text-2: #a5a5b4;
-        --text-3: #6f6f7e;
-        --violet: #8b72ff;
-        --violet-2: #6d4dff;
-        --pink: #ff5c8a;
-        --green: #3dd68c;
-        --grad: linear-gradient(135deg, #6d4dff 0%, #a24bff 50%, #ff5c8a 100%);
-        --radius: 20px;
-        --max: 1120px;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      html {
-        scroll-behavior: smooth;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-        font-feature-settings: "cv11", "ss01";
-        -webkit-font-smoothing: antialiased;
-        line-height: 1.55;
-        overflow-x: clip;
-      }
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
-      img {
-        display: block;
-        max-width: 100%;
-        height: auto;
-      }
-      .wrap {
-        width: 100%;
-        max-width: var(--max);
-        margin: 0 auto;
-        padding: 0 24px;
-      }
-      .grad-text {
-        background: linear-gradient(100deg, #9d86ff 0%, #c56bff 45%, #ff6b98 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-      .eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--line);
-        color: var(--text-2);
-        font-size: 13px;
-        font-weight: 500;
-      }
-      .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--green);
-        box-shadow: 0 0 12px var(--green);
-      }
-      h1,
-      h2,
-      h3 {
-        letter-spacing: -0.025em;
-        margin: 0;
-      }
-      h2 {
-        font-size: clamp(30px, 4vw, 44px);
-        line-height: 1.1;
-        font-weight: 700;
-      }
-      .lead {
-        color: var(--text-2);
-        font-size: 18px;
-        max-width: 560px;
-      }
-      section {
-        padding: 110px 0;
-        position: relative;
-      }
-      .section-head {
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 56px;
-      }
-      .section-head .lead {
-        margin: 0;
-      }
+<html lang="en" data-type="software" data-radius="soft" data-ground="sand" data-buttons="solid" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WisprFlow: voice typing for every app on your Windows PC</title>
+<meta name="description" content="Press a shortcut, talk, and WisprFlow types clean, punctuated text at your cursor. Whisper runs on your own PC: free, offline, no account.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="WisprFlow: voice typing for every app on your Windows PC">
+<meta property="og:description" content="Talk in any app and get punctuated text at your cursor. Runs offline on your PC, free and open source.">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f7f9f8">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/layout/pieces.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #f7f9f8; --p-surface: #ebf0ee; --p-ink: #06525c; --p-muted: #2f737d;
+  --p-accent: #06525c; --p-accent-ink: #f7f9f8; --p-action: #06525c; --p-action-ink: #f7f9f8;
+  --p-inv-bg: #06525c; --p-inv-surface: #205d66; --p-inv-ink: #f7f9f8; --p-inv-muted: #c1d0d2;
+  --p-inv-accent: #f7f9f8; --p-inv-accent-ink: #06525c; --p-inv-action: #f7f9f8; --p-inv-action-ink: #06525c;
+  --font-display: "Geist", system-ui, sans-serif;
+  --font-text: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.035em;
+  --display-tracking-xl: -0.045em;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/ui/window/fragment.css">
+<link rel="stylesheet" href="assets/ui/doc/fragment.css">
+<link rel="stylesheet" href="assets/ui/toggles/fragment.css">
+<link rel="stylesheet" href="assets/ui/voice/fragment.css">
+<link rel="stylesheet" href="assets/ui/checklist/fragment.css">
+<link rel="stylesheet" href="assets/ui/notify/fragment.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/liquid-type/moment.js">
+<style>
+  /* app-frame (sections-library.md) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  .app .ui-doc { width: 100%; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+  #cleanup .panel { --p-h: 336px; }
+  @media (max-width: 639px) { #cleanup .panel { --p-h: 220px; } }
+  .nav__logo img { width: 24px; height: 24px; border-radius: 7px; }
+  #cleanup .card p { color: var(--p-inv-ink); }
+  @media (max-width: 639px) {
+    .hero--collage .d-side { display: none; }
+    .hero--collage .d-row:nth-child(n+3) { display: none; }
+    .nav .nav__bar .nav__actions { display: none; }
+    .nav .nav__bar { display: flex; justify-content: space-between; align-items: center; }
+  }
+  @media (max-width: 400px) { .closing .btn--xl { white-space: normal; text-align: center; min-width: 0; padding-inline: 16px; } }
+  @media (max-width: 639px) { #cleanup .panel { --p-h: 180px; } }
+  .faq-steps { aspect-ratio: 4 / 3; }
+  .pill-scene { position: relative; height: 340px; margin-top: var(--s-7); background: var(--p-surface); }
+  .pill-scene__in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 24px; padding: clamp(20px, 5%, 56px); }
+  .pill-scene__field { width: 100%; max-width: 760px; padding: 20px 24px; border-radius: 14px; background: var(--p-bg); border: 1px solid color-mix(in srgb, var(--p-ink) 14%, transparent); font-size: clamp(15px, 1.6vw, 20px); line-height: 1.5; color: var(--p-ink); }
+  .pill-scene__field p { margin: 6px 0 0; max-width: 46ch; }
+  .pill-scene__to { font: 500 13px var(--font-mono); color: var(--p-muted); }
+  .pill-scene__caret { display: inline-block; width: 2px; height: 1.1em; margin-left: 3px; vertical-align: -0.15em; background: var(--p-ink); animation: ps-blink 1s steps(1) infinite; }
+  .pill-scene__pill { display: flex; flex: none; align-items: center; gap: 12px; height: 60px; padding: 0 10px; border-radius: 999px; background: #0d2b2f; color: #f7f9f8; box-shadow: 0 14px 34px -12px rgba(6, 40, 44, 0.55); }
+  .pill-scene__x, .pill-scene__stop { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 13px; }
+  .pill-scene__x { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.75); }
+  .pill-scene__stop { background: #f7f9f8; }
+  .pill-scene__stop b { width: 12px; height: 12px; border-radius: 3px; background: #06525c; }
+  .pill-scene__time { font: 500 13px var(--font-mono); color: rgba(255, 255, 255, 0.7); }
+  .pill-scene__wave { display: flex; align-items: center; gap: 3px; height: 28px; }
+  .pill-scene__wave i { width: 3px; height: 100%; border-radius: 3px; background: #9fd6cf; transform-origin: center; animation: ps-bar 1.2s ease-in-out infinite; }
+  .pill-scene__wave i:nth-child(3n) { animation-duration: 0.9s; } .pill-scene__wave i:nth-child(4n+1) { animation-duration: 1.5s; }
+  .pill-scene__wave i:nth-child(odd) { animation-delay: -0.4s; } .pill-scene__wave i:nth-child(5n) { animation-delay: -0.8s; }
+  @keyframes ps-bar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+  @keyframes ps-blink { 50% { opacity: 0; } }
+  @media (max-width: 639px) { .pill-scene { height: 400px; } .pill-scene__wave i:nth-child(n+11) { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .pill-scene__wave i, .pill-scene__caret { animation: none; } }
+</style>
+</head>
+<body>
+<!-- type: software
+     deal: hero collage, nav nav-centre, close close-type, footer footer-columns, rhythm dark-band, buttons solid,
+           mark: the client's own logo (in the palette's teal), grounds: sand-lit hero ground
+     palette teal-on-paper (an off-white page and a deep teal ink: the quiet look of a page being written on), type geist
+     moments: liquid-type in #statement -->
 
-      /* Buttons */
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        height: 52px;
-        padding: 0 24px;
-        border-radius: 14px;
-        font-weight: 600;
-        font-size: 15.5px;
-        transition: transform 0.15s, filter 0.15s, background 0.15s, border-color 0.15s;
-        cursor: pointer;
-        border: 0;
-        white-space: nowrap;
-      }
-      .btn:active {
-        transform: scale(0.98);
-      }
-      .btn-primary {
-        background: var(--grad);
-        color: #fff;
-        box-shadow: 0 10px 40px -10px rgba(162, 75, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-      }
-      .btn-primary:hover {
-        filter: brightness(1.1);
-      }
-      .btn-ghost {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid var(--line-2);
-        color: var(--text);
-      }
-      .btn-ghost:hover {
-        background: rgba(255, 255, 255, 0.08);
-      }
-      .btn svg {
-        width: 18px;
-        height: 18px;
-      }
-
-      /* Nav */
-      nav {
-        position: sticky;
-        top: 0;
-        z-index: 50;
-        backdrop-filter: saturate(160%) blur(16px);
-        -webkit-backdrop-filter: saturate(160%) blur(16px);
-        background: rgba(11, 11, 16, 0.7);
-        border-bottom: 1px solid transparent;
-        transition: border-color 0.2s;
-      }
-      nav.scrolled {
-        border-bottom-color: var(--line);
-      }
-      .nav-inner {
-        height: 68px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 700;
-        font-size: 17px;
-        letter-spacing: -0.02em;
-      }
-      .nav-links {
-        display: flex;
-        gap: 30px;
-        color: var(--text-2);
-        font-size: 14.5px;
-        font-weight: 500;
-      }
-      .nav-links a:hover {
-        color: var(--text);
-      }
-      .nav-cta {
-        height: 40px;
-        padding: 0 16px;
-        font-size: 14px;
-        border-radius: 11px;
-      }
-
-      /* Hero */
-      .hero {
-        position: relative;
-        padding: 72px 0 40px;
-        text-align: center;
-        overflow: hidden;
-      }
-      .glow {
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(120px);
-        pointer-events: none;
-        z-index: 0;
-      }
-      .hero .glow.a {
-        width: 620px;
-        height: 620px;
-        background: #6d4dff;
-        opacity: 0.33;
-        top: -260px;
-        left: 50%;
-        transform: translateX(-75%);
-      }
-      .hero .glow.b {
-        width: 480px;
-        height: 480px;
-        background: #ff5c8a;
-        opacity: 0.18;
-        top: -120px;
-        left: 50%;
-        transform: translateX(15%);
-      }
-      .grid-bg {
-        position: absolute;
-        inset: 0;
-        background-image: radial-gradient(rgba(255, 255, 255, 0.85) 1px, transparent 1px);
-        background-size: 26px 26px;
-        opacity: 0.05;
-        mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%);
-        -webkit-mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%);
-        pointer-events: none;
-      }
-      .hero .wrap {
-        position: relative;
-        z-index: 1;
-      }
-      .hero h1 {
-        font-size: clamp(42px, 7.2vw, 84px);
-        line-height: 1.02;
-        font-weight: 700;
-        letter-spacing: -0.045em;
-        margin: 26px auto 22px;
-        max-width: 900px;
-      }
-      .hero .lead {
-        margin: 0 auto;
-        font-size: clamp(17px, 2vw, 20px);
-      }
-      .cta-row {
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        flex-wrap: wrap;
-        margin-top: 38px;
-      }
-      .cta-meta {
-        margin-top: 16px;
-        color: var(--text-3);
-        font-size: 13.5px;
-      }
-      .cta-meta b {
-        color: var(--text-2);
-        font-weight: 500;
-      }
-      .os-note {
-        display: none;
-        margin: 14px auto 0;
-        max-width: 460px;
-        font-size: 13.5px;
-        color: var(--text-2);
-        padding: 10px 14px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.03);
-      }
-      .os-note a {
-        color: #b6a6ff;
-        text-decoration: underline;
-        text-underline-offset: 3px;
-      }
-
-      /* Hero showcase */
-      .showcase {
-        position: relative;
-        margin: 72px auto 0;
-        max-width: 1020px;
-      }
-      .window {
-        border-radius: 16px;
-        overflow: hidden;
-        border: 1px solid var(--line-2);
-        box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(139, 114, 255, 0.35);
-        background: var(--bg-2);
-      }
-      .window-bar {
-        height: 34px;
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        padding: 0 14px;
-        background: #121219;
-        border-bottom: 1px solid var(--line);
-      }
-      .window-bar i {
-        width: 11px;
-        height: 11px;
-        border-radius: 50%;
-        background: #2b2b35;
-      }
-      .float-pill {
-        position: absolute;
-        left: 50%;
-        bottom: -30px;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 60px;
-        padding: 0 10px;
-        border-radius: 999px;
-        background: rgba(18, 18, 23, 0.94);
-        box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(20px);
-        z-index: 3;
-      }
-      .pill-x,
-      .pill-stop {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        flex-shrink: 0;
-      }
-      .pill-x {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.7);
-      }
-      .pill-stop {
-        background: var(--grad);
-        box-shadow: 0 4px 18px -2px rgba(162, 75, 255, 0.7);
-      }
-      .pill-stop span {
-        width: 13px;
-        height: 13px;
-        border-radius: 3px;
-        background: #fff;
-      }
-      .wave {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        height: 30px;
-        margin: 0 6px;
-      }
-      .wave span {
-        width: 3px;
-        height: 100%;
-        border-radius: 3px;
-        transform-origin: center;
-        animation: bar 1s ease-in-out infinite;
-      }
-      .pill-time {
-        font: 500 13px ui-monospace, "SF Mono", Menlo, monospace;
-        color: rgba(255, 255, 255, 0.6);
-        width: 38px;
-        text-align: center;
-      }
-      @keyframes bar {
-        0%,
-        100% {
-          transform: scaleY(0.25);
-        }
-        50% {
-          transform: scaleY(1);
-        }
-      }
-      .bubble-demo {
-        position: absolute;
-        right: -22px;
-        top: 42%;
-        width: 52px;
-        height: 52px;
-        border-radius: 50%;
-        background: #141419;
-        display: grid;
-        place-items: center;
-        box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.8), inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
-        z-index: 3;
-      }
-      .bubble-demo::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        padding: 1.5px;
-        background: var(--grad);
-        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-      }
-      .mini-bars {
-        display: flex;
-        gap: 2.5px;
-        align-items: center;
-        height: 22px;
-      }
-      .mini-bars i {
-        width: 3px;
-        border-radius: 3px;
-        background: linear-gradient(180deg, #b6a6ff, #ff7aa3);
-      }
-
-      /* Live demo */
-      .demo {
-        padding-top: 140px;
-      }
-      .demo-card {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        gap: 28px;
-        align-items: center;
-        padding: 40px;
-        border-radius: 28px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01));
-        border: 1px solid var(--line);
-      }
-      .demo-label {
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--text-3);
-        margin-bottom: 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .rec-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--pink);
-        animation: blink 1.2s infinite;
-      }
-      @keyframes blink {
-        50% {
-          opacity: 0.3;
-        }
-      }
-      .said {
-        font-size: 19px;
-        color: var(--text-3);
-        font-style: italic;
-        min-height: 92px;
-      }
-      .typed {
-        font-size: 19px;
-        color: var(--text);
-        min-height: 92px;
-        padding: 18px 20px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid var(--line);
-        white-space: pre-line;
-      }
-      .caret {
-        display: inline-block;
-        width: 2px;
-        height: 1.1em;
-        background: var(--violet);
-        vertical-align: -0.15em;
-        margin-left: 2px;
-        animation: blink 1s steps(1) infinite;
-      }
-      .arrow {
-        width: 52px;
-        height: 52px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        background: var(--grad);
-        box-shadow: 0 8px 30px -8px rgba(162, 75, 255, 0.8);
-      }
-      .demo-tags {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        justify-content: center;
-        margin-top: 22px;
-      }
-      .tag {
-        font-size: 13px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        color: var(--text-2);
-        background: rgba(255, 255, 255, 0.02);
-        transition: all 0.2s;
-      }
-      .tag.on {
-        color: #fff;
-        border-color: rgba(139, 114, 255, 0.6);
-        background: rgba(139, 114, 255, 0.15);
-      }
-
-      /* Steps */
-      .steps {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
-      }
-      .step {
-        padding: 30px;
-        border-radius: var(--radius);
-        background: var(--card);
-        border: 1px solid var(--line);
-        position: relative;
-        overflow: hidden;
-      }
-      .step-num {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--violet);
-        margin-bottom: 18px;
-      }
-      .step h3 {
-        font-size: 20px;
-        margin-bottom: 8px;
-      }
-      .step p {
-        color: var(--text-2);
-        margin: 0;
-        font-size: 15px;
-      }
-      .keys {
-        display: flex;
-        gap: 6px;
-        margin-top: 22px;
-      }
-      kbd {
-        font: 500 13px Inter, sans-serif;
-        padding: 6px 10px;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid var(--line-2);
-        border-bottom-width: 2px;
-        color: var(--text);
-      }
-
-      /* Features */
-      .features {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
-      }
-      .feature {
-        padding: 28px;
-        border-radius: var(--radius);
-        background: var(--card);
-        border: 1px solid var(--line);
-        transition: border-color 0.2s, transform 0.2s;
-      }
-      .feature:hover {
-        border-color: var(--line-2);
-        transform: translateY(-2px);
-      }
-      .icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        background: rgba(139, 114, 255, 0.14);
-        color: #b6a6ff;
-        margin-bottom: 18px;
-      }
-      .icon svg {
-        width: 20px;
-        height: 20px;
-      }
-      .feature h3 {
-        font-size: 17px;
-        margin-bottom: 6px;
-      }
-      .feature p {
-        color: var(--text-2);
-        margin: 0;
-        font-size: 14.5px;
-      }
-
-      /* Private */
-      .private {
-        display: grid;
-        grid-template-columns: 1fr 1.1fr;
-        gap: 56px;
-        align-items: center;
-      }
-      .checks {
-        list-style: none;
-        padding: 0;
-        margin: 28px 0 0;
-        display: grid;
-        gap: 14px;
-      }
-      .checks li {
-        display: flex;
-        gap: 12px;
-        color: var(--text-2);
-        font-size: 15.5px;
-      }
-      .checks li b {
-        color: var(--text);
-        font-weight: 600;
-      }
-      .tick {
-        flex-shrink: 0;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        background: rgba(61, 214, 140, 0.14);
-        color: var(--green);
-        margin-top: 1px;
-      }
-      .cost {
-        margin-top: 30px;
-        border-radius: 16px;
-        border: 1px solid var(--line);
-        overflow: hidden;
-        font-size: 14px;
-      }
-      .cost div {
-        display: flex;
-        justify-content: space-between;
-        padding: 12px 18px;
-        color: var(--text-2);
-      }
-      .cost div + div {
-        border-top: 1px solid var(--line);
-      }
-      .cost .free {
-        background: rgba(61, 214, 140, 0.07);
-        color: var(--text);
-        font-weight: 600;
-      }
-      .cost .free span:last-child {
-        color: var(--green);
-      }
-
-      /* Gallery */
-      .tabs {
-        display: inline-flex;
-        gap: 4px;
-        padding: 5px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid var(--line);
-        margin: 0 auto 30px;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      .tabs button {
-        font: 500 14px Inter, sans-serif;
-        color: var(--text-2);
-        background: none;
-        border: 0;
-        padding: 9px 16px;
-        border-radius: 10px;
-        cursor: pointer;
-      }
-      .tabs button.on {
-        background: rgba(255, 255, 255, 0.09);
-        color: #fff;
-      }
-      .gallery {
-        text-align: center;
-      }
-      .gallery .window img {
-        width: 100%;
-        aspect-ratio: 1120 / 720;
-        object-fit: cover;
-      }
-      .caption {
-        margin-top: 18px;
-        color: var(--text-3);
-        font-size: 14px;
-      }
-
-      /* FAQ */
-      .faq {
-        max-width: 760px;
-        margin: 0 auto;
-      }
-      details {
-        border-bottom: 1px solid var(--line);
-        padding: 22px 4px;
-      }
-      summary {
-        list-style: none;
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 17px;
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        align-items: center;
-      }
-      summary::-webkit-details-marker {
-        display: none;
-      }
-      summary::after {
-        content: "+";
-        font-size: 24px;
-        font-weight: 400;
-        color: var(--text-3);
-        transition: transform 0.2s;
-      }
-      details[open] summary::after {
-        transform: rotate(45deg);
-      }
-      details p {
-        color: var(--text-2);
-        margin: 12px 0 0;
-        font-size: 15.5px;
-      }
-      details code {
-        font: 13.5px ui-monospace, Menlo, monospace;
-        background: rgba(255, 255, 255, 0.06);
-        padding: 2px 6px;
-        border-radius: 6px;
-      }
-
-      /* Final CTA */
-      .final {
-        text-align: center;
-        border-radius: 32px;
-        padding: 80px 24px;
-        position: relative;
-        overflow: hidden;
-        border: 1px solid var(--line);
-        background: #101017;
-      }
-      .final .glow.a {
-        width: 480px;
-        height: 480px;
-        background: #6d4dff;
-        opacity: 0.35;
-        top: -240px;
-        left: -60px;
-      }
-      .final .glow.b {
-        width: 420px;
-        height: 420px;
-        background: #ff5c8a;
-        opacity: 0.22;
-        bottom: -240px;
-        right: -40px;
-      }
-      .final > *:not(.glow) {
-        position: relative;
-        z-index: 1;
-      }
-
-      footer {
-        padding: 48px 0 60px;
-        color: var(--text-3);
-        font-size: 14px;
-      }
-      .foot {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-      }
-      .foot a:hover {
-        color: var(--text);
-      }
-      .foot-links {
-        display: flex;
-        gap: 22px;
-      }
-
-      /* Reveal on scroll */
-      .reveal {
-        opacity: 0;
-        transform: translateY(18px);
-        transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
-      }
-      .reveal.in {
-        opacity: 1;
-        transform: none;
-      }
-
-      @media (max-width: 900px) {
-        .nav-links {
-          display: none;
-        }
-        .steps,
-        .features {
-          grid-template-columns: 1fr;
-        }
-        .private {
-          grid-template-columns: 1fr;
-          gap: 40px;
-        }
-        .demo-card {
-          grid-template-columns: 1fr;
-          padding: 24px;
-        }
-        .arrow {
-          margin: 0 auto;
-          transform: rotate(90deg);
-        }
-        section {
-          padding: 80px 0;
-        }
-        .bubble-demo {
-          display: none;
-        }
-      }
-      @media (max-width: 560px) {
-        .wrap {
-          padding: 0 16px;
-        }
-        .float-pill .wave span:nth-child(n + 15) {
-          display: none;
-        }
-        .btn {
-          width: 100%;
-        }
-        .nav-cta {
-          width: auto;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-        }
-        .reveal {
-          opacity: 1;
-          transform: none;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <nav id="nav">
-      <div class="wrap nav-inner">
-        <a href="#" class="brand" aria-label="WisprFlow home">
-          <img src="assets/logo.svg" width="30" height="30" alt="" />
-          WisprFlow
-        </a>
-        <div class="nav-links">
-          <a href="#how">How it works</a>
-          <a href="#features">Features</a>
-          <a href="#private">Private mode</a>
-          <a href="#faq">FAQ</a>
-        </div>
-        <a class="btn btn-primary nav-cta js-download" href="#download">Download</a>
-      </div>
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#history">Skip to content</a>
+    <a class="nav__logo" href="#top"><img src="assets/logo.svg" alt="" width="24" height="24">WisprFlow</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#history">History</a></div>
+      <div class="nav__item"><a class="nav__link" href="#offline">Offline</a></div>
+      <div class="nav__item"><a class="nav__link" href="#cleanup">Cleanup</a></div>
+      <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
     </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary js-download" href="https://github.com/santhankrishna8/wisprflow/releases/latest/download/WisprFlow-Setup.exe">Download for Windows</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
 
-    <header class="hero">
-      <div class="glow a"></div>
-      <div class="glow b"></div>
-      <div class="grid-bg"></div>
-      <div class="wrap">
-        <span class="eyebrow"><span class="dot"></span>Free · Open source · Works offline</span>
-        <h1>Stop typing.<br /><span class="grad-text">Start talking.</span></h1>
-        <p class="lead">
-          Press a shortcut, say what you mean, and clean, punctuated text appears wherever your cursor is — in any app. Runs privately on your own PC.
-        </p>
-        <div class="cta-row" id="download">
-          <a class="btn btn-primary js-download" href="#">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.5v7H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7L3 18.5zM11.5 12.5H21V21l-9.5-1.3z" /></svg>
-            Download for Windows
-          </a>
-          <a class="btn btn-ghost js-github" href="#">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z" /></svg>
-            View source
-          </a>
-        </div>
-        <p class="cta-meta" id="cta-meta">Windows 10 &amp; 11 · 64-bit · Free forever</p>
-        <p class="os-note" id="os-note">
-          WisprFlow is Windows-only for now. On macOS or Linux you can <a class="js-github" href="#">build it from source</a>.
-        </p>
-
-        <div class="showcase reveal">
-          <div class="window">
-            <div class="window-bar"><i></i><i></i><i></i></div>
-            <img src="assets/app-home-dark.jpg" width="2240" height="1440" alt="The WisprFlow app: stats, a big dictation button and recent transcripts" />
-          </div>
-          <div class="bubble-demo" aria-hidden="true">
-            <div class="mini-bars"><i style="height: 45%"></i><i style="height: 75%"></i><i style="height: 100%"></i><i style="height: 70%"></i><i style="height: 40%"></i></div>
-          </div>
-          <div class="float-pill" aria-hidden="true">
-            <div class="pill-x">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+<main id="top">
+  <section class="hero hero--collage" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text grid hero__grid">
+      <div class="hero__text span-5">
+        <h1 id="hero-h">Voice typing for every app on your Windows PC</h1>
+        <p class="hero__lead">Press Ctrl+Shift+Space, say what you mean, press it again. WisprFlow types clean, punctuated text at your cursor, with a Whisper model that runs on your own PC.</p>
+        <div class="btn-row"><a class="btn btn--primary js-download" href="https://github.com/santhankrishna8/wisprflow/releases/latest/download/WisprFlow-Setup.exe">Download for Windows<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#history">See the app</a></div>
+        <p class="hero__proof">Free and open source. 117 MB, for Windows 10 and 11.</p>
+      </div>
+      <div class="hero__art span-6 start-7" role="img" aria-label="WisprFlow's history of dictations, and a card showing a spoken correction turned into clean text and pasted into Slack">
+        <div class="ly-piece ly-piece--main d-win" aria-hidden="true">
+          <div class="d-win__bar"><span class="d-win__dots"><i></i><i></i><i></i></span><span>WisprFlow · History</span></div>
+          <div class="d-win__body">
+            <div class="d-side">
+              <span><i></i>Home</span><span class="is-on"><i></i>History</span><span><i></i>Dictionary</span><span><i></i>Settings</span>
+              <span class="d-side__label">Model</span><span><i></i>Base</span><span><i></i>Tiny</span>
             </div>
-            <div class="wave" id="wave"></div>
-            <span class="pill-time" id="pill-time">0:03</span>
-            <div class="pill-stop"><span></span></div>
+            <div class="d-main">
+              <div class="d-main__head"><h4>History</h4><span class="d-btn">Export</span></div>
+              <div class="d-tabs"><span class="is-on">Today 9</span><span>Polished 8</span><span>Original 1</span></div>
+              <div class="d-rows">
+                <div class="d-row"><span class="d-thumb" style="background:#cfe3df"></span><div><b>Standup</b><small>Slack</small></div><span class="num">5 w</span><span class="d-chip">Pasted</span></div>
+                <div class="d-row"><span class="d-thumb" style="background:#e6dcc6"></span><div><b>Reply</b><small>Gmail</small></div><span class="num">4 w</span><span class="d-chip">Pasted</span></div>
+                <div class="d-row"><span class="d-thumb" style="background:#d5e0e8"></span><div><b>Bug note</b><small>VS Code</small></div><span class="num">4 w</span><span class="d-chip">Pasted</span></div>
+                <div class="d-row"><span class="d-thumb" style="background:#e9e1d3"></span><div><b>Groceries</b><small>Notepad</small></div><span class="num">3 w</span><span class="d-chip d-chip--low">Copied</span></div>
+                <div class="d-row"><span class="d-thumb" style="background:#d9e6dc"></span><div><b>Friday fix</b><small>Teams</small></div><span class="num">4 w</span><span class="d-chip">Pasted</span></div>
+                <div class="d-row"><span class="d-thumb" style="background:#e3e0ea"></span><div><b>Roadmap</b><small>Notion</small></div><span class="num">4 w</span><span class="d-chip">Pasted</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ly-piece ly-piece--note d-card" aria-hidden="true" data-ly-steps="700">
+          <div class="d-card__row"><h5>Dictation into Slack</h5><span class="d-chip" data-step data-step-at="4">Pasted</span></div>
+          <div class="d-note__line" data-step><i class="warn">!</i><span>Heard <b>“at 4, actually 5”</b></span></div>
+          <div class="d-note__line" data-step><i>✓</i><span>Wrote <b>“at 5”</b>, filler removed</span></div>
+          <div class="d-note__line" data-step><i>✓</i><span>Pasted at the cursor in <b>1.9 s</b></span></div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="history" aria-labelledby="history-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <h2 class="span-5" id="history-h">Every dictation, kept on your PC</h2>
+        <div class="span-6 start-7 stack-4">
+          <p>Each line you speak lands in History with the app it went to. Open one to see what you said beside what was typed, every fix marked.</p>
+          <a class="link" href="#cleanup">See what cleanup fixes</a>
+        </div>
+      </div>
+      <div class="ui app fill" role="img" aria-label="WisprFlow's history list beside one open dictation, with a spoken correction and a dictionary spelling marked" data-ui-pause-host>
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window" data-open="Pasting" data-work="Polishing" data-done="Pasted">
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb">WisprFlow <i>/</i> <b>History</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">Search</span><span class="ui-kbd">/</span></span>
+            </div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-hidden="true">
+                <span class="ui-win__nav is-on"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>Today<em>9</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>Polished<em>8</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg>Original<em>1</em></span>
+                <span class="ui-win__label">Apps</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Slack</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Gmail</span>
+              </nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>App</span><span>Text</span><span>Status</span><span>Time</span></div>
+                <ul class="ui-win__rows">
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">SL</span><span class="ui-win__who">Slack</span><span class="ui-win__sub">Let's move standup to 9:30…</span><span class="ui-win__st" data-st>Pasting</span><span class="ui-win__age">now</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">GM</span><span class="ui-win__who">Gmail</span><span class="ui-win__sub">Thanks for the intro, Karthik…</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">4m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">VS</span><span class="ui-win__who">VS Code</span><span class="ui-win__sub">The API returns a 404 for…</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">9m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">NP</span><span class="ui-win__who">Notepad</span><span class="ui-win__sub">Groceries: eggs, milk, coffee…</span><span class="ui-win__st is-you" data-st>Copied</span><span class="ui-win__age">16m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">TM</span><span class="ui-win__who">Teams</span><span class="ui-win__sub">Can we ship the onboarding…</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">22m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">NO</span><span class="ui-win__who">Notion</span><span class="ui-win__sub">Draft the Q3 roadmap before…</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">31m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">WA</span><span class="ui-win__who">WhatsApp</span><span class="ui-win__sub">On my way, ten minutes out.</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">48m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">WD</span><span class="ui-win__who">Word</span><span class="ui-win__sub">The second chapter opens in…</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">1h</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">CH</span><span class="ui-win__who">Chrome</span><span class="ui-win__sub">Flights to Chennai in March</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">2h</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">SL</span><span class="ui-win__who">Slack</span><span class="ui-win__sub">Deploy is green, merging now.</span><span class="ui-win__st is-done" data-st>Pasted</span><span class="ui-win__age">2h</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open" data-ui-loop>
+          <div class="ui ui-doc" data-ui="doc">
+            <article class="ui-doc__page">
+              <div class="ui-doc__label">Slack · #design-team · 0:06 spoken</div>
+              <div class="ui-doc__title">Standup time</div>
+              <div class="ui-doc__text">Let's move standup to <mark class="ui-doc__mark is-on">9:30</mark> starting Monday, so the Chennai team can join before lunch.</div>
+              <div class="ui-doc__text"><mark class="ui-doc__mark" data-kind="Dictionary" data-msg="Spelled as in your dictionary." data-where="Dictionary, added last week">Karthik</mark> will send the new invite today.</div>
+              <div class="ui-doc__text">If that clashes with anything, reply here and we'll find another slot.</div>
+              <div class="ui-doc__text">Thanks, everyone.</div>
+            </article>
+            <aside class="ui-doc__note ui-panel is-on" aria-live="polite">
+              <div class="ui-doc__kind"><span class="ui-doc__dot"></span><span data-doc-kind>Correction</span></div>
+              <div class="ui-doc__msg" data-doc-msg>You said “um, at 9, actually 9:30”.</div>
+              <div class="ui-doc__where" data-doc-where>Original transcript</div>
+            </aside>
           </div>
         </div>
       </div>
-    </header>
+    </div>
+  </section>
 
-    <section class="demo">
-      <div class="wrap">
-        <div class="demo-card reveal">
-          <div>
-            <div class="demo-label"><span class="rec-dot"></span>You say</div>
-            <div class="said" id="said"></div>
-          </div>
-          <div class="arrow" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </div>
-          <div>
-            <div class="demo-label">WisprFlow types</div>
-            <div class="typed" id="typed"><span class="caret"></span></div>
-          </div>
-        </div>
-        <div class="demo-tags" id="demo-tags"></div>
-      </div>
-    </section>
-
-    <section id="how">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">How it works</span>
-          <h2>Three seconds from thought to text</h2>
-          <p class="lead">No new app to switch to. WisprFlow lives in your tray and works wherever you type.</p>
-        </div>
-        <div class="steps">
-          <div class="step reveal">
-            <div class="step-num">01</div>
-            <h3>Press your shortcut</h3>
-            <p>Or click the little floating button on the edge of your screen. Drag it anywhere you like.</p>
-            <div class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd></div>
-          </div>
-          <div class="step reveal">
-            <div class="step-num">02</div>
-            <h3>Speak naturally</h3>
-            <p>Ramble, pause, correct yourself. Say “new paragraph” or list things out — it understands.</p>
-            <div class="keys"><kbd>🎙 Listening…</kbd></div>
-          </div>
-          <div class="step reveal">
-            <div class="step-num">03</div>
-            <h3>Polished text appears</h3>
-            <p>Press again. Filler words gone, punctuation fixed, pasted right at your cursor.</p>
-            <div class="keys"><kbd>✓ Pasted</kbd></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="features">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Features</span>
-          <h2>Everything you need, <span class="grad-text">nothing you don't</span></h2>
-        </div>
-        <div class="features">
-          <div class="feature reveal">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2" /><path d="M8 21h8M12 18v3" /></svg></div>
-            <h3>Works in every app</h3>
-            <p>Gmail, Slack, WhatsApp, Word, VS Code, ChatGPT — anywhere there's a text cursor.</p>
-          </div>
-          <div class="feature reveal">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z" /></svg></div>
-            <h3>AI polish</h3>
-            <p>Removes “um” and “uh”, fixes grammar, applies “4… actually 5” corrections. Natural, professional or casual style.</p>
-          </div>
-          <div class="feature reveal">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg></div>
-            <h3>Fully offline mode</h3>
-            <p>Run Whisper on your own PC. No account, no API key, no internet — your voice never leaves the computer.</p>
-          </div>
-          <div class="feature reveal">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9 9h.01M15 9h.01M12 12v3" /></svg></div>
-            <h3>Floating button</h3>
-            <p>A tiny always-on-top button. Click to talk, drag it out of the way. It never steals focus from your work.</p>
-          </div>
-          <div class="feature reveal">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z" /><path d="M8 7h8M8 11h6" /></svg></div>
-            <h3>Personal dictionary</h3>
-            <p>Teach it names, jargon and acronyms so “Kubernetes” and your teammates' names are always spelled right.</p>
-          </div>
-          <div class="feature reveal">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg></div>
-            <h3>History &amp; stats</h3>
-            <p>Search everything you've dictated, compare with the original, and see your words, pace and time saved.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="private">
-      <div class="wrap private">
-        <div class="reveal">
-          <span class="eyebrow"><span class="dot"></span>Private mode</span>
-          <h2 style="margin-top: 18px">Your voice stays<br /><span class="grad-text">on your computer.</span></h2>
-          <p class="lead" style="margin-top: 18px">
-            Choose <b style="color: var(--text)">On this PC</b> and WisprFlow runs OpenAI's Whisper model locally with whisper.cpp. Pick a model once and dictate offline, forever, for free.
-          </p>
-          <ul class="checks">
-            <li><span class="tick">✓</span><span><b>No API key, no account.</b> Download a model (75–574 MB) and you're done.</span></li>
-            <li><span class="tick">✓</span><span><b>Only runs while you talk.</b> The engine starts when you dictate and shuts down after 10 idle minutes.</span></li>
-            <li><span class="tick">✓</span><span><b>Fast on ordinary laptops.</b> A typical sentence is transcribed in about two seconds on CPU.</span></li>
-            <li><span class="tick">✓</span><span><b>Prefer the cloud?</b> Plug in OpenAI or Groq instead — your key, your choice.</span></li>
+  <section class="section" id="offline" aria-labelledby="offline-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-6">
+          <h2 id="offline-h">WisprFlow runs offline on your PC</h2>
+          <p class="t-lead">Download a Whisper model once. WisprFlow starts it when you talk and stops it after 10 idle minutes, so nothing runs in the background.</p>
+          <ul class="stack-3">
+            <li>The Base model is a 142 MB download.</li>
+            <li>No account and no API key.</li>
+            <li>Your audio stays on the computer.</li>
           </ul>
-          <div class="cost">
-            <div class="free"><span>On this PC (offline)</span><span>$0 / month</span></div>
-            <div><span>Groq (cloud)</span><span>≈ $0.50 / month*</span></div>
-            <div><span>OpenAI (cloud)</span><span>≈ $2–3 / month*</span></div>
-          </div>
-          <p style="color: var(--text-3); font-size: 12.5px; margin-top: 10px">*Heavy use: 100 dictations a day. Prices set by the providers.</p>
+          <a class="link" href="#faq">Read how the models compare</a>
         </div>
-        <div class="window reveal">
-          <div class="window-bar"><i></i><i></i><i></i></div>
-          <img src="assets/app-local.jpg" width="2240" height="1440" alt="Choosing an on-device Whisper model in WisprFlow settings" loading="lazy" />
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="wrap gallery">
-        <div class="section-head reveal">
-          <span class="eyebrow">Tour</span>
-          <h2>Designed to disappear</h2>
-          <p class="lead">A calm, focused app you'll rarely need to open — but it's lovely when you do.</p>
-        </div>
-        <div class="tabs reveal" id="tabs" role="tablist"></div>
-        <div class="window reveal" style="max-width: 1020px; margin: 0 auto">
-          <div class="window-bar"><i></i><i></i><i></i></div>
-          <img id="tour-img" src="assets/app-home-light.jpg" width="2240" height="1440" alt="" />
-        </div>
-        <p class="caption" id="tour-caption"></p>
-      </div>
-    </section>
-
-    <section id="faq">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">FAQ</span>
-          <h2>Questions, answered</h2>
-        </div>
-        <div class="faq reveal">
-          <details open>
-            <summary>Is it really free?</summary>
-            <p>Yes. WisprFlow is free and open source (MIT). In “On this PC” mode there's nothing to pay for at all. If you choose a cloud provider instead, you pay that provider directly for what you use — usually cents a month.</p>
-          </details>
-          <details>
-            <summary>Windows says “Windows protected your PC”. Is it safe?</summary>
-            <p>That warning appears for any new app that isn't code-signed with a paid certificate. Click <b>More info → Run anyway</b>. The full source code is public, and every installer is built automatically on GitHub from that code.</p>
-          </details>
-          <details>
-            <summary>Do I need an API key?</summary>
-            <p>No. During setup, choose <b>On this PC</b> and download the <b>Base</b> model (142 MB). That's it. API keys are only needed if you'd rather use OpenAI or Groq in the cloud.</p>
-          </details>
-          <details>
-            <summary>How do I get the AI cleanup offline too?</summary>
-            <p>Install <a href="https://ollama.com" style="color: #b6a6ff">Ollama</a>, run <code>ollama pull llama3.2:3b</code>, then in WisprFlow go to <b>Settings → AI cleanup → Self-hosted → Use Ollama</b>. Without it, you get the raw transcript, which is already very good.</p>
-          </details>
-          <details>
-            <summary>Which languages does it support?</summary>
-            <p>Whisper understands 90+ languages, including English, Hindi, Tamil, Spanish, French, German, Japanese and Chinese. It can auto-detect, or you can pick yours in Settings for better speed and accuracy.</p>
-          </details>
-          <details>
-            <summary>What about macOS and Linux?</summary>
-            <p>The app is cross-platform, but ready-made installers are Windows-only for now. On macOS or Linux, clone the repo and run <code>npm install</code> then <code>npm run dev</code>.</p>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <section style="padding-top: 20px">
-      <div class="wrap">
-        <div class="final reveal">
-          <div class="glow a"></div>
-          <div class="glow b"></div>
-          <img src="assets/logo.svg" width="64" height="64" alt="" style="margin: 0 auto 26px" />
-          <h2>Give your keyboard a break.</h2>
-          <p class="lead" style="margin: 16px auto 0">Install in under a minute. Speak your first sentence in two.</p>
-          <div class="cta-row">
-            <a class="btn btn-primary js-download" href="#">Download for Windows — it's free</a>
+        <div class="frame frame--split span-6 start-7" role="img" aria-label="WisprFlow's model list: Tiny and Base downloaded, Small and Large v3 Turbo not">
+          <div class="stage stage--fade-br">
+            <div class="at-rise fit" style="--fit-max:420px;--ax:max(24px, 50% - 210px);--ay:40px;--ay-sm:24px">
+              <div class="ui ui-panel ui-toggles" data-ui="toggles" aria-hidden="true">
+                <div class="ui-head">
+                  <svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2"/><path d="M6 6h4v4H6z"/></svg>
+                  <div class="ui-title">Models on this PC</div>
+                  <span class="ui-spacer"></span>
+                  <div class="ui-meta" data-tg-count>2 of 4 on</div>
+                </div>
+                <ul class="ui-toggles__list">
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Tiny · 75 MB</span><span class="ui-tg__sub">Fastest, for short notes</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Tiny model" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Base · 142 MB</span><span class="ui-tg__sub">Recommended for most PCs</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Base model" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Small · 466 MB</span><span class="ui-tg__sub">More accurate, a little slower</span></span><button class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="Small model" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Large v3 Turbo · 574 MB</span><span class="ui-tg__sub">Best accuracy, needs a strong CPU</span></span><button class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="Large v3 Turbo model" tabindex="-1"><i></i></button></li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <footer>
-      <div class="wrap foot">
-        <div class="brand" style="font-size: 15px; color: var(--text-2)">
-          <img src="assets/logo.svg" width="22" height="22" alt="" />
-          WisprFlow
-          <span style="color: var(--text-3); font-weight: 400">· Built by <a href="https://github.com/santhankrishna8" style="color: var(--text-2)">Santhan Krishna</a></span>
-        </div>
-        <div class="foot-links">
-          <a class="js-github" href="#">GitHub</a>
-          <a class="js-releases" href="#">Releases</a>
-          <a href="https://github.com/OpenWhispr/openwhispr">Inspired by OpenWhispr</a>
+  <section class="section" id="statement" aria-labelledby="statement-h">
+    <div class="wrap">
+      <div data-moment="liquid-type" class="section-head" style="max-width:none">
+        <h2 class="mo-lt__type t-display" id="statement-h">Write as fast as you talk</h2>
+        <p class="t-lead">One shortcut in any app. WisprFlow does the typing, the punctuation and the paste.</p>
+      </div>
+      <div class="frame pill-scene ui" role="img" aria-label="A message box with dictated text appearing, and WisprFlow's recording pill with a live waveform under it">
+        <div class="pill-scene__in" aria-hidden="true">
+          <div class="pill-scene__field">
+            <span class="pill-scene__to">Message #design-team</span>
+            <p>Let's move standup to 9:30 starting Monday, so the Chennai team can join before lunch.<span class="pill-scene__caret"></span></p>
+          </div>
+          <div class="pill-scene__pill">
+            <span class="pill-scene__x">✕</span>
+            <span class="pill-scene__wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="pill-scene__time">0:06</span>
+            <span class="pill-scene__stop"><b></b></span>
+          </div>
         </div>
       </div>
-    </footer>
+    </div>
+  </section>
 
-    <script>
-      // ---- Config: where downloads come from ----
-      const REPO = "santhankrishna8/wisprflow";
-      const GITHUB = `https://github.com/${REPO}`;
-      const RELEASES = `${GITHUB}/releases/latest`;
-      const DOWNLOAD = `${GITHUB}/releases/latest/download/WisprFlow-Setup.exe`;
+  <section class="section g2 ground-inverse" id="cleanup" aria-labelledby="cleanup-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="cleanup-h">AI cleanup on every dictation. <span class="muted">Fillers out, your words in.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row span-6">
+            <h3>Hears 99 languages</h3>
+            <p>Whisper takes English, Hindi, Tamil and many more. Pick yours in Settings for faster, surer results.</p>
+            <div class="panel panel--flush">
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:264px;--ax:max(24px, 50% - 132px);--ay:32px;--ay-sm:16px">
+                <div class="ui ui-panel ui-voice" data-ui="voice" data-ui-opts='{"orb":false}'>
+                  <div class="ui-voice__top"><span class="ui-chip ui-chip--ink">Listening</span><span class="ui-spacer"></span><span class="ui-voice__time" data-voice-time>00:06</span></div>
+                  <div class="ui-voice__orb" data-voice-orb></div>
+                  <div class="ui-voice__who"><span class="ui-voice__name">WisprFlow</span><span class="ui-voice__with">into Slack</span></div>
+                  <div class="ui-voice__cap" data-voice-cap>Let's move standup to 9:30 starting Monday.</div>
+                  <div class="ui-voice__bar">
+                    <span class="ui-voice__btn" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><rect x="6" y="2" width="4" height="8" rx="2"/><path d="M3.5 8a4.5 4.5 0 0 0 9 0M8 12.5V14"/></svg></span>
+                    <span class="ui-voice__wave" aria-hidden="true"><i style="--h:4"></i><i style="--h:7"></i><i style="--h:12"></i><i style="--h:9"></i><i style="--h:16"></i><i style="--h:11"></i><i style="--h:20"></i><i style="--h:14"></i><i style="--h:8"></i><i style="--h:17"></i><i style="--h:12"></i><i style="--h:6"></i><i style="--h:10"></i><i style="--h:18"></i><i style="--h:13"></i><i style="--h:7"></i><i style="--h:15"></i><i style="--h:9"></i><i style="--h:5"></i><i style="--h:11"></i><i style="--h:7"></i><i style="--h:4"></i></span>
+                    <span class="ui-voice__btn ui-voice__end" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="1.5"/></svg></span>
+                  </div>
+                </div>
+              </div></div>
+            </div>
+          </article>
+          <article class="card card--row span-6">
+            <h3>Removes fillers and stumbles</h3>
+            <p>“Um”, “uh” and false starts go. Say “4, actually 5” and it writes 5, with the punctuation in place.</p>
+            <div class="panel panel--flush">
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)" data-ui-loop>
+                <div class="ui ui-panel ui-checks" data-ui="checklist">
+                  <div class="ui-checks__head"><div class="ui-title">Cleanup on this dictation</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>3 of 4</div></div>
+                  <div class="ui-checks__bar"><i data-checks-bar style="--k:0.75"></i></div>
+                  <ul class="ui-checks__list">
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Removed “um” and “uh”</span></li>
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Kept “9:30”, dropped “9”</span></li>
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Added commas and a full stop</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Turned a spoken list into bullets</span></li>
+                  </ul>
+                </div>
+              </div></div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row span-6">
+          <h3>Spells your names right</h3>
+          <p>Add names and jargon to the dictionary once. Karthik and Kubernetes come out right every time.</p>
+          <div class="panel panel--flush">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)">
+              <div class="ui ui-notify" data-ui="notify">
+                <ul class="ui-notify__list" data-notify-list>
+                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Spelled from dictionary<time>now</time></span><span class="ui-note__body">“kubernetes” became Kubernetes</span></span></li>
+                  <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="3">K</span><span class="ui-note__text"><span class="ui-note__title">Added to dictionary<time>2d</time></span><span class="ui-note__body">Karthik, Chennai, WisprFlow</span></span></li>
+                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Replaced a word<time>3d</time></span><span class="ui-note__body">“open ai” became OpenAI</span></span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row span-6">
+          <h3>Deletes history on a timer</h3>
+          <p>History can clear itself after 3 hours, a day or a week. API keys sit in the Windows keychain.</p>
+          <div class="panel panel--flush">
+            <div class="stage stage--fade-b"><div class="at-right to-edge" style="--ax:32px;--ay:56px">
+              <div class="ui ui-panel ui-toggles" data-ui="toggles">
+                <div class="ui-head">
+                  <svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 4v3.6c0 3-2.1 5.4-5 6.6-2.9-1.2-5-3.6-5-6.6V4z"/><path d="m5.8 8 1.6 1.6 3-3.2"/></svg>
+                  <div class="ui-title">Privacy</div><span class="ui-spacer"></span><div class="ui-meta" data-tg-count>3 of 4 on</div>
+                </div>
+                <ul class="ui-toggles__list">
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Keep history 3 hours</span><span class="ui-tg__sub">Older dictations are deleted</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Keep history 3 hours" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Restore clipboard</span><span class="ui-tg__sub">Puts back what you copied</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Restore clipboard" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Sound effects</span><span class="ui-tg__sub">A soft chime on start and stop</span></span><button class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="Sound effects" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Launch at login</span><span class="ui-tg__sub">Waits quietly in the tray</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Launch at login" tabindex="-1"><i></i></button></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
 
-      document.querySelectorAll(".js-download").forEach((a) => (a.href = DOWNLOAD));
-      document.querySelectorAll(".js-github").forEach((a) => (a.href = GITHUB));
-      document.querySelectorAll(".js-releases").forEach((a) => (a.href = RELEASES));
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-6">
+          <h2 id="faq-h">Questions about WisprFlow</h2>
+          <div class="frame frame--split faq-steps" role="img" aria-label="WisprFlow's four setup steps, three of them done">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:32px;--ay-sm:24px">
+              <div class="ui ui-panel ui-checks" data-ui="checklist" aria-hidden="true">
+                <div class="ui-checks__head"><div class="ui-title">Set up WisprFlow</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>3 of 4</div></div>
+                <div class="ui-checks__bar"><i data-checks-bar style="--k:0.75"></i></div>
+                <ul class="ui-checks__list">
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Run WisprFlow-Setup.exe</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Allow the microphone</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Download the Base model</span></li>
+                  <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Press Ctrl+Shift+Space</span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>Is WisprFlow free?</h3><p>Yes. WisprFlow is open source under the MIT licence. On this PC there is nothing to pay; a cloud provider such as Groq or OpenAI bills you for what you use.</p></div>
+          <div class="faq__item"><h3>Why does Windows warn about WisprFlow?</h3><p>New apps without a paid code-signing certificate show that warning. Choose More info, then Run anyway. Every installer is built on GitHub from the public source.</p></div>
+          <div class="faq__item"><h3>Which WisprFlow model should I download?</h3><p>Base, at 142 MB, suits most laptops. Tiny is quicker on older PCs; Small and Large v3 Turbo are more accurate and slower.</p></div>
+          <div class="faq__item"><h3>Does WisprFlow’s AI cleanup work offline?</h3><p>Yes, with Ollama. Run <code>ollama pull llama3.2:3b</code>, then choose Self-hosted, then Use Ollama under AI cleanup.</p></div>
+          <div class="faq__item"><h3>Is there a WisprFlow for Mac?</h3><p>Not as an installer yet. On macOS or Linux, run it from the source code with npm.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
 
-      // Show version + size from the latest release (falls back silently).
-      fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
-        .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((rel) => {
-          const exe = (rel.assets || []).find((a) => a.name.endsWith(".exe"));
-          if (!exe) return;
-          const mb = Math.round(exe.size / 1e6);
-          document.getElementById("cta-meta").innerHTML =
-            `<b>${rel.tag_name}</b> · ${mb} MB · Windows 10 &amp; 11 · Free forever`;
-        })
-        .catch(() => {});
+<footer class="footer closing" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Download WisprFlow for Windows</h2>
+        <p>Free and open source. 117 MB, for Windows 10 and 11, 64-bit.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide js-download" href="https://github.com/santhankrishna8/wisprflow/releases/latest/download/WisprFlow-Setup.exe">Download for Windows<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><img src="assets/logo.svg" alt="" width="24" height="24" loading="lazy">WisprFlow</a>
+          <p class="footer__lede">Voice typing for Windows that runs on your own PC.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>App</h3><ul><li><a href="#history">History</a></li><li><a href="#offline">Offline models</a></li><li><a href="#cleanup">Cleanup</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Help</h3><ul><li><a href="#faq">Questions</a></li><li><a href="https://github.com/santhankrishna8/wisprflow/releases">Releases</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Source</h3><ul><li><a href="https://github.com/santhankrishna8/wisprflow">GitHub</a></li><li><a href="https://github.com/OpenWhispr/openwhispr">OpenWhispr</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Maker</h3><ul><li><a href="https://github.com/santhankrishna8">Santhan Krishna</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Santhan Krishna. MIT licence.</span>
+      </div>
+    </div>
+  </div>
+</footer>
 
-      // Non-Windows visitors get a gentle note.
-      const ua = navigator.userAgent;
-      if (!/Windows/i.test(ua) && !/Android|iPhone|iPad/i.test(ua)) {
-        document.getElementById("os-note").style.display = "block";
-      }
-
-      // Sticky nav border.
-      const nav = document.getElementById("nav");
-      addEventListener("scroll", () => nav.classList.toggle("scrolled", scrollY > 8), { passive: true });
-
-      // Hero waveform.
-      const wave = document.getElementById("wave");
-      for (let i = 0; i < 26; i++) {
-        const s = document.createElement("span");
-        s.style.background = `linear-gradient(180deg,#b6a6ff,${i < 13 ? "#8b72ff" : "#ff7aa3"})`;
-        s.style.animationDuration = `${0.7 + ((i * 37) % 9) / 20}s`;
-        s.style.animationDelay = `${-i * 0.09}s`;
-        wave.appendChild(s);
-      }
-      let secs = 3;
-      setInterval(() => {
-        secs = (secs + 1) % 60;
-        document.getElementById("pill-time").textContent = `0:${String(secs).padStart(2, "0")}`;
-      }, 1000);
-
-      // Live "you say → it types" demo.
-      const examples = [
-        { tag: "Removes filler", said: "so um I think we should uh probably ship it on friday", typed: "I think we should probably ship it on Friday." },
-        { tag: "Self-corrections", said: "let's meet at 4 actually no make it 5 tomorrow", typed: "Let's meet at 5 tomorrow." },
-        { tag: "Lists", said: "groceries eggs milk and uh coffee beans", typed: "Groceries:\n• Eggs\n• Milk\n• Coffee beans" },
-        { tag: "Tech terms", said: "the api returns a four oh four when the user id is missing", typed: "The API returns a 404 when the user ID is missing." },
-        { tag: "Punctuation", said: "thanks so much this is like super helpful see you monday", typed: "Thanks so much — this is super helpful! See you Monday." },
-      ];
-      const said = document.getElementById("said");
-      const typed = document.getElementById("typed");
-      const tags = document.getElementById("demo-tags");
-      examples.forEach((e, i) => {
-        const t = document.createElement("span");
-        t.className = "tag";
-        t.textContent = e.tag;
-        tags.appendChild(t);
-      });
-      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-      async function runDemo() {
-        for (let i = 0; ; i = (i + 1) % examples.length) {
-          const e = examples[i];
-          [...tags.children].forEach((t, j) => t.classList.toggle("on", j === i));
-          said.textContent = "";
-          typed.innerHTML = '<span class="caret"></span>';
-          const words = e.said.split(" ");
-          for (const w of words) {
-            said.textContent += (said.textContent ? " " : "") + w;
-            await sleep(reduce ? 0 : 150);
-          }
-          await sleep(reduce ? 0 : 500);
-          for (let c = 1; c <= e.typed.length; c++) {
-            typed.innerHTML = e.typed.slice(0, c).replace(/</g, "&lt;") + '<span class="caret"></span>';
-            await sleep(reduce ? 0 : 22);
-          }
-          await sleep(2600);
-        }
-      }
-      runDemo();
-
-      // Screenshot tour.
-      const tour = [
-        { label: "Home", src: "assets/app-home-light.jpg", caption: "Your stats at a glance, and one big button to start talking." },
-        { label: "Private mode", src: "assets/app-local.jpg", caption: "Pick an on-device Whisper model. Downloads once, works offline." },
-        { label: "History", src: "assets/app-history.jpg", caption: "Search everything you've said. Flip between polished and original." },
-        { label: "Setup", src: "assets/app-onboarding.jpg", caption: "A two-minute setup that gets you dictating right away." },
-      ];
-      const tabsEl = document.getElementById("tabs");
-      const img = document.getElementById("tour-img");
-      const cap = document.getElementById("tour-caption");
-      tour.forEach((t, i) => {
-        const b = document.createElement("button");
-        b.textContent = t.label;
-        b.setAttribute("role", "tab");
-        b.onclick = () => select(i);
-        tabsEl.appendChild(b);
-      });
-      function select(i) {
-        [...tabsEl.children].forEach((b, j) => {
-          b.classList.toggle("on", j === i);
-          b.setAttribute("aria-selected", j === i);
-        });
-        img.src = tour[i].src;
-        img.alt = tour[i].caption;
-        cap.textContent = tour[i].caption;
-      }
-      select(0);
-
-      // Reveal on scroll.
-      const io = new IntersectionObserver(
-        (entries) =>
-          entries.forEach((e) => {
-            if (e.isIntersecting) {
-              e.target.classList.add("in");
-              io.unobserve(e.target);
-            }
-          }),
-        { threshold: 0.12 }
-      );
-      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
-    </script>
-  </body>
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+</body>
 </html>

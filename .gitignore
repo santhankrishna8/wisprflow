@@ -4,3 +4,7 @@ release/
 *.log
 .DS_Store
 vendor/
+
+.taste-skill/
+site/.taste-skill/
+site/shots/
