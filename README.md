@@ -88,7 +88,7 @@ The shortcut shows the overlay, which records audio with `MediaRecorder`. On the
 
 ## Releasing & website
 
-- **Release:** push a tag such as `v0.2.0`. GitHub Actions builds the installer, runs the on-device transcription smoke test, and publishes `WisprFlow-Setup.exe` to GitHub Releases. The permanent download link is `https://github.com/santhankrishna8/wisprflow/releases/latest/download/WisprFlow-Setup.exe`.
+- **Release:** on GitHub open **Actions → Build Windows installer → Run workflow** and enter a version such as `0.2.0` (or push a tag like `v0.2.0`). GitHub Actions builds the installer, runs the on-device transcription smoke test, and publishes `WisprFlow-Setup.exe` to GitHub Releases. The permanent download link is `https://github.com/santhankrishna8/wisprflow/releases/latest/download/WisprFlow-Setup.exe`.
 - **Website:** the landing page lives in `site/` (plain HTML, no build). On Vercel, import the repo and set **Root Directory** to `site` with the **Other** framework preset.
 
 ## Scripts

@@ -1,13 +1,23 @@
 name: Build Windows installer
 
-# Run manually for a test build, or push a tag like v0.2.0 to publish a release.
+# - Run manually with no version for a test build (download it from the run's Artifacts).
+# - Run manually with a version (e.g. 0.2.0), or push a tag like v0.2.0, to publish a
+#   GitHub Release. The website's download button always points at the latest release.
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 0.2.0 (leave empty for a test build)"
+        required: false
+        default: ""
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write # needed to publish releases on tag pushes
+  contents: write # needed to create releases
+
+env:
+  RAW_VERSION: ${{ inputs.version != '' && inputs.version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name || '') }}
 
 jobs:
   build:
@@ -19,10 +29,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Use the tag as the app version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Use the release version for the app
+        if: env.RAW_VERSION != ''
         shell: pwsh
-        run: npm version $("${{ github.ref_name }}".TrimStart("v")) --no-git-tag-version --allow-same-version
+        run: |
+          $v = $env:RAW_VERSION.Trim().TrimStart("v")
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 1.2.3, got '$v'" }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append
+          npm version $v --no-git-tag-version --allow-same-version
       - run: npm run typecheck
       - run: npm test
       - run: npm run dist:win
@@ -33,11 +47,15 @@ jobs:
           name: WisprFlow-Windows-installer
           path: release/*.exe
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RAW_VERSION != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: WisprFlow ${{ env.VERSION }}
           files: release/WisprFlow-Setup.exe
           generate_release_notes: true
+          make_latest: true
           body: |
             ## Install
             1. Download **WisprFlow-Setup.exe** below.
