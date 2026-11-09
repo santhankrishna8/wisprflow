@@ -202,7 +202,7 @@ function Provider({ settings, update, refresh }: Omit<Props, "state">) {
         onChange={(v: SttProvider) =>
           update({
             sttProvider: v,
-            sttModel: STT_PROVIDERS[v].models[0] || settings.sttModel,
+            sttModel: STT_PROVIDERS[v].models[0] || STT_PROVIDERS[v].defaultModel || settings.sttModel,
             ...(v !== "custom" ? { llmProvider: v, llmModel: v === "groq" ? "llama-3.3-70b-versatile" : "gpt-4o-mini" } : {}),
           })
         }
@@ -215,6 +215,16 @@ function Provider({ settings, update, refresh }: Omit<Props, "state">) {
               defaultValue={settings.sttBaseUrl}
               onBlur={(e) => update({ sttBaseUrl: e.target.value.trim(), cleanupEnabled: false })}
               placeholder="http://localhost:8000/v1"
+              className="font-mono text-[12.5px]"
+            />
+          </Field>
+        )}
+        {settings.sttProvider === "custom" && (
+          <Field label="Model" hint="The model ID your server has downloaded.">
+            <Input
+              defaultValue={settings.sttModel}
+              onBlur={(e) => update({ sttModel: e.target.value.trim() })}
+              placeholder="Systran/faster-whisper-small"
               className="font-mono text-[12.5px]"
             />
           </Field>

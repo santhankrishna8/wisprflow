@@ -1,6 +1,6 @@
 import type { LlmProvider, SttProvider, Tone } from "./wispr";
 
-export const STT_PROVIDERS: Record<SttProvider, { name: string; blurb: string; models: string[]; keyUrl?: string; keyPrefix?: string }> = {
+export const STT_PROVIDERS: Record<SttProvider, { name: string; blurb: string; models: string[]; defaultModel?: string; keyUrl?: string; keyPrefix?: string }> = {
   openai: {
     name: "OpenAI",
     blurb: "Whisper & GPT-4o transcribe. Accurate in 50+ languages.",
@@ -19,10 +19,11 @@ export const STT_PROVIDERS: Record<SttProvider, { name: string; blurb: string; m
     name: "Self-hosted",
     blurb: "Any OpenAI-compatible server — e.g. Speaches or faster-whisper-server — for fully offline use.",
     models: [],
+    defaultModel: "Systran/faster-whisper-small",
   },
 };
 
-export const LLM_PROVIDERS: Record<LlmProvider, { name: string; models: string[]; keyUrl?: string; keyPrefix?: string }> = {
+export const LLM_PROVIDERS: Record<LlmProvider, { name: string; models: string[]; defaultModel?: string; keyUrl?: string; keyPrefix?: string }> = {
   openai: { name: "OpenAI", models: ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o"], keyUrl: "https://platform.openai.com/api-keys", keyPrefix: "sk-…" },
   anthropic: {
     name: "Anthropic",
@@ -31,7 +32,7 @@ export const LLM_PROVIDERS: Record<LlmProvider, { name: string; models: string[]
     keyPrefix: "sk-ant-…",
   },
   groq: { name: "Groq", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"], keyUrl: "https://console.groq.com/keys", keyPrefix: "gsk_…" },
-  custom: { name: "Self-hosted", models: [] },
+  custom: { name: "Self-hosted", models: [], defaultModel: "llama3.2:3b" },
 };
 
 export const TONES: Array<{ value: Tone; label: string; sample: string }> = [

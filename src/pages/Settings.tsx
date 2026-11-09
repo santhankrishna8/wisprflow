@@ -256,7 +256,7 @@ function KeyLink({ url }: { url?: string }) {
 function Transcription({ settings, update, refresh }: Props) {
   const p = STT_PROVIDERS[settings.sttProvider];
   const choose = (v: SttProvider) =>
-    update({ sttProvider: v, sttModel: STT_PROVIDERS[v].models[0] || settings.sttModel });
+    update({ sttProvider: v, sttModel: STT_PROVIDERS[v].models[0] || STT_PROVIDERS[v].defaultModel || settings.sttModel });
   return (
     <div className="flex flex-col gap-8">
       <section>
@@ -305,7 +305,7 @@ function Transcription({ settings, update, refresh }: Props) {
 
 function Cleanup({ settings, update, refresh }: Props) {
   const p = LLM_PROVIDERS[settings.llmProvider];
-  const choose = (v: LlmProvider) => update({ llmProvider: v, llmModel: LLM_PROVIDERS[v].models[0] || settings.llmModel });
+  const choose = (v: LlmProvider) => update({ llmProvider: v, llmModel: LLM_PROVIDERS[v].models[0] || LLM_PROVIDERS[v].defaultModel || settings.llmModel });
   const on = settings.cleanupEnabled;
   return (
     <div className="flex flex-col gap-8">
