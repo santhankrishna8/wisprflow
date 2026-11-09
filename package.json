@@ -92,7 +92,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "WisprFlow",
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "artifactName": "WisprFlow-Setup.${ext}"
     }
   },
   "devDependencies": {
