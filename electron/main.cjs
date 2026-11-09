@@ -27,6 +27,8 @@ const isMac = process.platform === "darwin";
 let store;
 let mainWindow = null;
 let overlayWindow = null;
+let bubbleWindow = null;
+let bubbleDrag = null;
 let tray = null;
 let quitting = false;
 
@@ -111,6 +113,73 @@ function createOverlayWindow() {
   load(overlayWindow, "overlay.html");
 }
 
+// ---------- Floating button ----------
+const BUBBLE = { width: 76, height: 76 };
+const EDGE_MARGIN = 0;
+
+function defaultBubblePosition() {
+  const { workArea } = screen.getPrimaryDisplay();
+  return {
+    x: workArea.x + workArea.width - BUBBLE.width - EDGE_MARGIN,
+    y: Math.round(workArea.y + workArea.height * 0.55),
+  };
+}
+
+/** Keep the button fully on a screen; optionally snap it to the nearest side edge. */
+function clampBubble({ x, y }, snap) {
+  const centre = { x: x + BUBBLE.width / 2, y: y + BUBBLE.height / 2 };
+  const { workArea: wa } = screen.getDisplayNearestPoint(centre);
+  let nx = Math.min(Math.max(x, wa.x), wa.x + wa.width - BUBBLE.width);
+  const ny = Math.min(Math.max(y, wa.y), wa.y + wa.height - BUBBLE.height);
+  if (snap) {
+    nx = centre.x < wa.x + wa.width / 2 ? wa.x + EDGE_MARGIN : wa.x + wa.width - BUBBLE.width - EDGE_MARGIN;
+  }
+  return { x: Math.round(nx), y: Math.round(ny) };
+}
+
+function createBubbleWindow() {
+  const pos = clampBubble(store.raw().bubblePosition || defaultBubblePosition(), false);
+  bubbleWindow = new BrowserWindow({
+    ...BUBBLE,
+    ...pos,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    focusable: false, // clicking it must never steal focus from the app you're typing in
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    fullscreenable: false,
+    minimizable: false,
+    maximizable: false,
+    backgroundColor: "#00000000",
+    ...(isMac ? { type: "panel" } : {}),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  bubbleWindow.setAlwaysOnTop(true, "screen-saver");
+  bubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  load(bubbleWindow, "bubble.html");
+  bubbleWindow.once("ready-to-show", () => {
+    if (store.raw().showBubble && store.raw().onboarded) bubbleWindow.showInactive();
+  });
+  bubbleWindow.on("closed", () => (bubbleWindow = null));
+}
+
+function setBubbleVisible(visible) {
+  if (visible) {
+    if (!bubbleWindow) createBubbleWindow();
+    else bubbleWindow.showInactive();
+  } else {
+    bubbleWindow?.hide();
+  }
+}
+
 function positionOverlay() {
   const point = screen.getCursorScreenPoint();
   const { workArea } = screen.getDisplayNearestPoint(point);
@@ -122,7 +191,7 @@ function positionOverlay() {
 }
 
 function broadcast(channel, payload) {
-  for (const w of [mainWindow, overlayWindow]) {
+  for (const w of [mainWindow, overlayWindow, bubbleWindow]) {
     if (w && !w.isDestroyed()) w.webContents.send(channel, payload);
   }
 }
@@ -311,6 +380,16 @@ function updateTray() {
       { label: recording ? "Stop dictation" : "Start dictation", accelerator: registeredHotkey || undefined, click: toggleDictation },
       { type: "separator" },
       { label: "Open WisprFlow", click: showMain },
+      {
+        label: "Show floating button",
+        type: "checkbox",
+        checked: Boolean(store.raw().showBubble),
+        click: (item) => {
+          store.setSettings({ showBubble: item.checked });
+          setBubbleVisible(item.checked);
+          broadcast("settings:changed", store.getSettings());
+        },
+      },
       { label: "Settings…", click: () => showMain("settings") },
       { type: "separator" },
       { label: "Quit", role: "quit" },
@@ -373,6 +452,10 @@ function registerIpc() {
         /* unsupported */
       }
     }
+    if ("showBubble" in patch || "onboarded" in patch) {
+      setBubbleVisible(next.showBubble && store.raw().onboarded);
+      updateTray();
+    }
     if ("theme" in patch) {
       nativeTheme.themeSource = patch.theme;
       if (!isMac && mainWindow) {
@@ -413,6 +496,42 @@ function registerIpc() {
   ipcMain.handle("dictation:cancel", () => cancelDictation());
   ipcMain.handle("dictation:getState", () => state);
   ipcMain.handle("dictation:process", processAudio);
+  // Drag is tracked in the main process with the real cursor position, which
+  // stays correct across displays and DPI scales.
+  ipcMain.on("bubble:dragStart", () => {
+    if (!bubbleWindow) return;
+    const [wx, wy] = bubbleWindow.getPosition();
+    const c = screen.getCursorScreenPoint();
+    bubbleDrag = { dx: c.x - wx, dy: c.y - wy, startX: c.x, startY: c.y, moved: false };
+  });
+  ipcMain.on("bubble:dragMove", () => {
+    if (!bubbleWindow || !bubbleDrag) return;
+    const c = screen.getCursorScreenPoint();
+    if (!bubbleDrag.moved && Math.hypot(c.x - bubbleDrag.startX, c.y - bubbleDrag.startY) < 4) return;
+    bubbleDrag.moved = true;
+    bubbleWindow.setBounds({ ...clampBubble({ x: c.x - bubbleDrag.dx, y: c.y - bubbleDrag.dy }, false), ...BUBBLE });
+  });
+  ipcMain.handle("bubble:dragEnd", () => {
+    const drag = bubbleDrag;
+    bubbleDrag = null;
+    if (!bubbleWindow || !drag) return { moved: false };
+    if (!drag.moved) {
+      toggleDictation();
+      return { moved: false };
+    }
+    const [x, y] = bubbleWindow.getPosition();
+    const snapped = clampBubble({ x, y }, true);
+    bubbleWindow.setBounds({ ...snapped, ...BUBBLE });
+    store.setSettings({ bubblePosition: snapped });
+    return { moved: true };
+  });
+  ipcMain.handle("bubble:hide", () => {
+    store.setSettings({ showBubble: false });
+    setBubbleVisible(false);
+    updateTray();
+    broadcast("settings:changed", store.getSettings());
+  });
+
   ipcMain.on("overlay:interactive", (_e, interactive) => {
     overlayWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
   });
@@ -444,6 +563,10 @@ app.whenReady().then(() => {
   registerIpc();
   createMainWindow();
   createOverlayWindow();
+  createBubbleWindow();
+  screen.on("display-removed", () => {
+    if (bubbleWindow) bubbleWindow.setBounds({ ...clampBubble(store.raw().bubblePosition || defaultBubblePosition(), true), ...BUBBLE });
+  });
   const r = registerHotkey(store.raw().hotkey);
   if (!r.ok) notify("Hotkey unavailable", r.error + " Choose another in Settings.");
   try {

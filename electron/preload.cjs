@@ -39,6 +39,11 @@ contextBridge.exposeInMainWorld("wispr", {
   setOverlayInteractive: (on) => ipcRenderer.send("overlay:interactive", Boolean(on)),
   recorderError: (message) => ipcRenderer.send("dictation:recorderError", message),
 
+  bubbleDragStart: () => ipcRenderer.send("bubble:dragStart"),
+  bubbleDragMove: () => ipcRenderer.send("bubble:dragMove"),
+  bubbleDragEnd: () => ipcRenderer.invoke("bubble:dragEnd"),
+  hideBubble: () => ipcRenderer.invoke("bubble:hide"),
+
   copy: (text) => ipcRenderer.invoke("clipboard:write", text),
   getPermissions: () => ipcRenderer.invoke("permissions:get"),
   requestMic: () => ipcRenderer.invoke("permissions:requestMic"),

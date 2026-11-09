@@ -106,6 +106,9 @@ function General({ settings, update }: Props) {
           <Row title="Restore clipboard" description="Put back whatever you had copied after pasting.">
             <Switch checked={settings.restoreClipboard} onChange={(v) => update({ restoreClipboard: v })} label="Restore clipboard" />
           </Row>
+          <Row title="Floating button" description="A small always-on-top button at the edge of your screen. Click to dictate, drag to move.">
+            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Floating button" />
+          </Row>
           <Row title="Sound effects" description="Soft chimes when recording starts and stops.">
             <Switch checked={settings.soundEffects} onChange={(v) => update({ soundEffects: v })} label="Sound effects" />
           </Row>

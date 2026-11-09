@@ -7,6 +7,7 @@
 ## Features
 
 - **Dictate anywhere** – a global shortcut (default <kbd>Ctrl/⌘</kbd> <kbd>Shift</kbd> <kbd>Space</kbd>) starts recording; press again to transcribe and paste at your cursor. <kbd>Esc</kbd> cancels.
+- **Floating button** – a small always-on-top button on the edge of your screen. Click it to start/stop listening, drag it anywhere (it snaps to the nearest edge and remembers its spot), hover and press × to hide it. Toggle it in Settings → General or from the tray menu.
 - **Floating recording pill** – a live waveform, timer, and cancel/finish buttons that never steal focus from the app you're typing in.
 - **AI polish** – removes filler words, fixes punctuation, applies spoken self-corrections ("4, actually 5" → "5") and formats lists. Choose a style: Natural, Professional, Casual or Verbatim.
 - **Bring your own provider** – OpenAI (Whisper / GPT-4o transcribe) or Groq (Whisper Large v3) for speech-to-text, and OpenAI, Anthropic Claude, or Groq for cleanup. Any **OpenAI-compatible self-hosted server** (Speaches, faster-whisper-server, Ollama, LM Studio) works too, so you can run fully offline.
@@ -22,6 +23,7 @@
 | <img src="docs/history.png" alt="History" /> | <img src="docs/home-dark.png" alt="Dark mode" /> |
 
 <p align="center"><img src="docs/overlay-recording.png" width="420" alt="Recording pill" /></p>
+<p align="center"><img src="docs/bubble-states.png" width="470" alt="Floating button: idle, hover, recording, processing, done, error" /></p>
 
 ## Getting started
 
@@ -64,6 +66,7 @@ src/
   App.tsx       shell and sidebar
   pages/        Home, History, Dictionary, Settings, Onboarding
   overlay/      recording pill, mic capture and level metering
+  bubble/       always-on-top floating dictation button
   components/   UI kit (buttons, switches, hotkey recorder, toasts…)
 ```
 

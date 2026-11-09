@@ -120,7 +120,7 @@ function Hero({ state, hotkey }: { state: DictationState; hotkey: string }) {
           </h2>
           <div className="mt-6 flex items-center gap-3 text-[13px] text-white/60">
             <Hotkey accel={hotkey} tone="inverse" />
-            <span>to start and stop · <span className="text-white/80">Esc</span> to cancel</span>
+            <span>or the floating button · <span className="text-white/80">Esc</span> to cancel</span>
           </div>
         </div>
 

@@ -25,6 +25,7 @@ export interface Settings {
   launchAtLogin: boolean;
   theme: Theme;
   micDeviceId: string;
+  showBubble: boolean;
   hasKey: Record<string, boolean>;
 }
 
@@ -87,6 +88,10 @@ export interface WisprApi {
   }>;
   setOverlayInteractive(on: boolean): void;
   recorderError(message: string): void;
+  bubbleDragStart(): void;
+  bubbleDragMove(): void;
+  bubbleDragEnd(): Promise<{ moved: boolean }>;
+  hideBubble(): Promise<void>;
   copy(text: string): Promise<void>;
   getPermissions(): Promise<Permissions>;
   requestMic(): Promise<boolean>;
@@ -156,6 +161,7 @@ function createMock(): WisprApi {
     launchAtLogin: false,
     theme: (params.get("theme") as Theme) || "system",
     micDeviceId: "default",
+    showBubble: true,
     hasKey: { openai: true },
   };
   let state: DictationState = { status: "idle", message: "" };
@@ -235,6 +241,13 @@ function createMock(): WisprApi {
     processAudio: async () => ({ ok: true }),
     setOverlayInteractive: () => {},
     recorderError: () => {},
+    bubbleDragStart: () => {},
+    bubbleDragMove: () => {},
+    bubbleDragEnd: async () => {
+      await (async () => {})();
+      return { moved: false };
+    },
+    hideBubble: async () => {},
     copy: async (t) => {
       try {
         await navigator.clipboard.writeText(t);

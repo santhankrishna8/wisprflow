@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS = {
   launchAtLogin: false,
   theme: "system", // system | light | dark
   micDeviceId: "default",
+  showBubble: true, // always-on-top floating dictation button
+  bubblePosition: null, // { x, y } in screen coordinates
   keys: {}, // provider -> encrypted key (base64)
 };
 
