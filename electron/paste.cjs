@@ -36,19 +36,27 @@ async function simulatePaste() {
     }
   }
   throw new Error(
-    `Couldn't simulate paste (install ${wayland ? "wtype or ydotool" : "xdotool"}). Text is on your clipboard. ${lastErr ? "" : ""}`.trim()
+    `Couldn't simulate paste (install ${wayland ? "wtype or ydotool" : "xdotool"}). Text is on your clipboard.`
   );
 }
 
+/** Keep every common format (text, rich text, image) so restoring doesn't flatten what you had copied. */
+function snapshot(clipboard) {
+  const data = { text: clipboard.readText(), html: clipboard.readHTML(), rtf: clipboard.readRTF() };
+  const image = clipboard.readImage();
+  if (!image.isEmpty()) data.image = image;
+  return data;
+}
+
 async function pasteText(clipboard, text, { restore = true } = {}) {
-  const previous = restore ? clipboard.readText() : null;
+  const previous = restore ? snapshot(clipboard) : null;
   clipboard.writeText(text);
   await new Promise((r) => setTimeout(r, 60));
   await simulatePaste();
-  if (restore && previous != null) {
+  if (restore && previous) {
     setTimeout(() => {
       // Only restore if nothing else changed the clipboard meanwhile.
-      if (clipboard.readText() === text) clipboard.writeText(previous);
+      if (clipboard.readText() === text) clipboard.write(previous);
     }, 900);
   }
 }

@@ -36,3 +36,25 @@ test("pruneHistory removes only entries older than the retention window", () => 
   assert.strictEqual(store.pruneHistory(RETENTION_MS.forever, now), 0, "forever keeps everything");
   assert.strictEqual(store.getHistory().length, 2);
 });
+
+test("a corrupt data file is backed up, not silently overwritten", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-corrupt-"));
+  fs.writeFileSync(path.join(dir, "wisprflow-data.json"), "{ not json");
+  const store = createStore({ getPath: () => dir }, { isEncryptionAvailable: () => false });
+  assert.deepStrictEqual(store.getHistory(), []);
+  assert.ok(fs.readdirSync(dir).some((f) => f.includes(".corrupt-")), "backup exists");
+});
+
+test("cleanup rejects truncated output so raw text is pasted instead", async () => {
+  const realFetch = global.fetch;
+  global.fetch = async () => new Response(JSON.stringify({ choices: [{ finish_reason: "length", message: { content: "cut" } }] }), { status: 200 });
+  try {
+    const { cleanup } = require("../electron/ai.cjs");
+    await assert.rejects(
+      cleanup({ text: "hello world", settings: { llmProvider: "openai", llmModel: "x", tone: "natural" }, apiKey: "k", dictionary: [] }),
+      /cut off/
+    );
+  } finally {
+    global.fetch = realFetch;
+  }
+});

@@ -13,15 +13,22 @@ function pickMime() {
 }
 
 export async function startRecording(deviceId?: string, wav = false): Promise<Recording> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      deviceId: deviceId && deviceId !== "default" ? { exact: deviceId } : undefined,
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-      channelCount: 1,
-    },
+  const audio = (id?: string): MediaTrackConstraints => ({
+    deviceId: id && id !== "default" ? { exact: id } : undefined,
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: 1,
   });
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: audio(deviceId) });
+  } catch (err) {
+    // The saved microphone is unplugged: fall back to the system default.
+    const name = (err as Error)?.name;
+    if (!deviceId || deviceId === "default" || (name !== "OverconstrainedError" && name !== "NotFoundError")) throw err;
+    stream = await navigator.mediaDevices.getUserMedia({ audio: audio() });
+  }
   const ctx = new AudioContext();
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();

@@ -64,7 +64,7 @@ export default function SettingsPage(props: Props) {
         {tab === "transcription" && <Transcription {...props} />}
         {tab === "cleanup" && <Cleanup {...props} />}
         {tab === "appearance" && <Appearance {...props} />}
-        {tab === "about" && <About />}
+        {tab === "about" && <About settings={props.settings} />}
       </div>
     </div>
   );
@@ -360,8 +360,14 @@ function Cleanup({ settings, update, refresh }: Props) {
   const p = LLM_PROVIDERS[settings.llmProvider];
   const choose = (v: LlmProvider) => update({ llmProvider: v, llmModel: LLM_PROVIDERS[v].models[0] || LLM_PROVIDERS[v].defaultModel || settings.llmModel });
   const on = settings.cleanupEnabled;
+  const configured = settings.llmProvider === "custom" ? Boolean(settings.llmBaseUrl) : Boolean(settings.hasKey?.[settings.llmProvider]);
   return (
     <div className="flex flex-col gap-8">
+      {on && !configured && (
+        <p className="flex items-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-[12.5px] text-fg-2">
+          <CircleAlert className="size-4 shrink-0 text-danger" /> No {p.name} key or endpoint is set below, so your text is pasted exactly as transcribed.
+        </p>
+      )}
       <Card>
         <Row
           title="Polish with AI"
@@ -508,7 +514,7 @@ function ThemePreview({ mode }: { mode: Theme }) {
   );
 }
 
-function About() {
+function About({ settings }: { settings: Settings }) {
   const [info, setInfo] = useState<{ version: string } | null>(null);
   useEffect(() => {
     wispr.appInfo().then(setInfo);
@@ -529,6 +535,11 @@ function About() {
         <Row title="Your data stays yours" description="History, dictionary and settings are stored locally. API keys are encrypted with your OS keychain. No telemetry, ever.">
           <ShieldCheck className="size-5 text-success" />
         </Row>
+        {settings.keysEncrypted === false && (
+          <Row title="API keys are not encrypted" description="No OS keychain is available on this system, so saved API keys are only obfuscated on disk. Prefer On this PC or keep keys out of shared machines.">
+            <CircleAlert className="size-5 text-danger" />
+          </Row>
+        )}
         <Row title="Inspired by OpenWhispr" description="Open-source, MIT licensed.">
           <Button size="sm" variant="ghost" onClick={() => wispr.openExternal("https://github.com/OpenWhispr/openwhispr")}>
             GitHub <ExternalLink className="size-3.5" />

@@ -74,7 +74,11 @@ function createMainWindow() {
     },
   });
   load(mainWindow, "index.html");
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  // When launched at login, start quietly in the tray (unless first-run onboarding is pending).
+  const startHidden = process.argv.includes("--hidden") && store.raw().onboarded;
+  mainWindow.once("ready-to-show", () => {
+    if (!startHidden) mainWindow.show();
+  });
   mainWindow.on("close", (e) => {
     if (!quitting) {
       e.preventDefault();
@@ -201,6 +205,8 @@ function broadcast(channel, payload) {
 
 function setState(status, message = "") {
   state = { status, message };
+  // Esc cancels both recording and transcription.
+  registerEscape(status === "recording" || status === "processing");
   broadcast("dictation:state", state);
   updateTray();
 }
@@ -230,7 +236,6 @@ function startDictation() {
 }
 
 function stopDictation() {
-  registerEscape(false);
   overlayWindow?.webContents.send("dictation:stop");
 }
 
@@ -245,7 +250,7 @@ function cancelDictation() {
 
 function toggleDictation() {
   if (state.status === "recording") stopDictation();
-  else if (state.status === "processing") return;
+  else if (state.status === "processing") cancelDictation();
   else startDictation();
 }
 
@@ -444,11 +449,7 @@ async function testConnection(_e, kind) {
   }
   const provider = kind === "stt" ? s.sttProvider : s.llmProvider;
   const key = store.getKey(provider);
-  const bases = {
-    openai: "https://api.openai.com/v1",
-    groq: "https://api.groq.com/openai/v1",
-    anthropic: "https://api.anthropic.com/v1",
-  };
+  const bases = ai.LLM_ENDPOINTS;
   const base = provider === "custom" ? String(kind === "stt" ? s.sttBaseUrl : s.llmBaseUrl).replace(/\/+$/, "") : bases[provider];
   if (!base) return { ok: false, error: "Enter a base URL first." };
   if (!key && provider !== "custom") return { ok: false, error: "Enter an API key first." };
@@ -467,6 +468,10 @@ async function testConnection(_e, kind) {
   }
 }
 
+function loginItem(open) {
+  return { openAtLogin: open, args: ["--hidden"] };
+}
+
 function permissions() {
   return {
     platform: process.platform,
@@ -482,7 +487,7 @@ function registerIpc() {
     const next = store.setSettings(patch);
     if ("launchAtLogin" in patch && patch.launchAtLogin !== prev.launchAtLogin) {
       try {
-        app.setLoginItemSettings({ openAtLogin: Boolean(patch.launchAtLogin) });
+        app.setLoginItemSettings(loginItem(Boolean(patch.launchAtLogin)));
       } catch {
         /* unsupported */
       }
@@ -619,6 +624,13 @@ app.whenReady().then(() => {
     fetchImpl: (url, opts) => net.fetch(url, opts),
   });
   nativeTheme.themeSource = store.raw().theme || "system";
+  if (store.raw().launchAtLogin) {
+    try {
+      app.setLoginItemSettings(loginItem(true)); // refresh entries created before --hidden existed
+    } catch {
+      /* unsupported */
+    }
+  }
   if (isMac) app.dock?.setIcon?.(path.join(__dirname, "assets", "icon.png"));
   registerIpc();
   createMainWindow();

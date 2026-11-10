@@ -54,7 +54,7 @@ async function main() {
   const outDir = path.join(__dirname, "..", "vendor", "whisper", target);
   const exe = target.startsWith("win32") ? "whisper-server.exe" : "whisper-server";
   const marker = path.join(outDir, ".version");
-  if (fs.existsSync(path.join(outDir, exe)) && fs.readFileSync(marker, "utf8").trim() === `${TAG}:${build.sha256}`) {
+  if (fs.existsSync(path.join(outDir, exe)) && fs.existsSync(marker) && fs.readFileSync(marker, "utf8").trim() === `${TAG}:${build.sha256}`) {
     console.log(`[whisper] ${target} already present (${TAG}).`);
     return;
   }

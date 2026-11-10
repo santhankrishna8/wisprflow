@@ -7,7 +7,7 @@ const DEFAULT_SETTINGS = {
   onboarded: false,
   hotkey: "CommandOrControl+Shift+Space",
   language: "auto",
-  sttProvider: "openai", // local | openai | groq | custom
+  sttProvider: "local", // local | openai | groq | custom
   localModel: "base", // on-device whisper model id
   sttModel: "whisper-1",
   sttBaseUrl: "",
@@ -40,8 +40,15 @@ function createStore(app, safeStorage) {
       history: Array.isArray(raw.history) ? raw.history : [],
       dictionary: Array.isArray(raw.dictionary) ? raw.dictionary : [],
     };
-  } catch {
-    /* first run */
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      // Unreadable or corrupt: keep a copy so the next save can't destroy the user's data.
+      try {
+        fs.copyFileSync(file, `${file}.corrupt-${Date.now()}`);
+      } catch {
+        /* nothing to back up */
+      }
+    }
   }
 
   let timer = null;
@@ -69,10 +76,10 @@ function createStore(app, safeStorage) {
       const { keys, ...rest } = data.settings;
       const hasKey = {};
       for (const k of Object.keys(keys || {})) hasKey[k] = Boolean(keys[k]);
-      return { ...rest, hasKey };
+      return { ...rest, hasKey, keysEncrypted: canEncrypt() };
     },
     setSettings(patch) {
-      const { keys, hasKey, ...rest } = patch || {};
+      const { keys, hasKey, keysEncrypted, ...rest } = patch || {};
       data.settings = { ...data.settings, ...rest };
       save();
       return this.getSettings();

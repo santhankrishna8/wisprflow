@@ -19,6 +19,15 @@ const TONES = {
   verbatim: "",
 };
 
+const STT_TIMEOUT_MS = 90_000;
+const LLM_TIMEOUT_MS = 45_000;
+
+/** Combine the caller's abort signal with a hard timeout so a hung server can't wedge dictation. */
+function withTimeout(signal, ms) {
+  const t = AbortSignal.timeout(ms);
+  return signal ? AbortSignal.any([signal, t]) : t;
+}
+
 function trimSlash(s) {
   return String(s || "").replace(/\/+$/, "");
 }
@@ -54,7 +63,7 @@ async function transcribe({ audio, mimeType, settings, apiKey, dictionary, signa
     method: "POST",
     headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
     body: form,
-    signal,
+    signal: withTimeout(signal, STT_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Transcription failed: ${await readError(res)}`);
   const json = await res.json();
@@ -82,6 +91,11 @@ function cleanupPrompt(tone, dictionary) {
   return rules.join("\n");
 }
 
+/** Output is about as long as the input: allow generous headroom, capped. */
+function maxOutputTokens(text) {
+  return Math.min(16384, Math.max(1024, Math.ceil(String(text).length / 2) + 256));
+}
+
 async function cleanup({ text, settings, apiKey, dictionary, signal }) {
   if (!text || settings.tone === "verbatim") return text;
   const provider = settings.llmProvider;
@@ -99,14 +113,15 @@ async function cleanup({ text, settings, apiKey, dictionary, signal }) {
       },
       body: JSON.stringify({
         model: settings.llmModel || "claude-haiku-5-5",
-        max_tokens: 2048,
+        max_tokens: maxOutputTokens(text),
         system,
         messages: [{ role: "user", content: user }],
       }),
-      signal,
+      signal: withTimeout(signal, LLM_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`Cleanup failed: ${await readError(res)}`);
     const json = await res.json();
+    if (json.stop_reason === "max_tokens") throw new Error("Cleanup was cut off (text too long).");
     return (json.content || []).map((c) => c.text || "").join("").trim() || text;
   }
 
@@ -124,10 +139,11 @@ async function cleanup({ text, settings, apiKey, dictionary, signal }) {
         { role: "user", content: user },
       ],
     }),
-    signal,
+    signal: withTimeout(signal, LLM_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Cleanup failed: ${await readError(res)}`);
   const json = await res.json();
+  if (json.choices?.[0]?.finish_reason === "length") throw new Error("Cleanup was cut off (text too long).");
   return String(json.choices?.[0]?.message?.content || "").trim() || text;
 }
 
@@ -142,4 +158,4 @@ function applyDictionary(text, dictionary) {
   return out;
 }
 
-module.exports = { transcribe, cleanup, applyDictionary, cleanupPrompt };
+module.exports = { LLM_ENDPOINTS, transcribe, cleanup, applyDictionary, cleanupPrompt };

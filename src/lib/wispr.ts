@@ -29,6 +29,7 @@ export interface Settings {
   historyRetention: "forever" | "3h" | "24h" | "7d" | "30d";
   showBubble: boolean;
   hasKey: Record<string, boolean>;
+  keysEncrypted?: boolean;
 }
 
 export interface HistoryEntry {
@@ -173,7 +174,7 @@ function createMock(): WisprApi {
     onboarded: !params.has("onboarding"),
     hotkey: "CommandOrControl+Shift+Space",
     language: "auto",
-    sttProvider: (params.get("stt") as SttProvider) || "openai",
+    sttProvider: (params.get("stt") as SttProvider) || "local",
     localModel: "base",
     sttModel: "whisper-1",
     sttBaseUrl: "",
@@ -309,7 +310,7 @@ function createMock(): WisprApi {
     requestMic: async () => true,
     openAccessibility: async () => {},
     openExternal: async (url) => void window.open(url, "_blank"),
-    appInfo: async () => ({ version: "0.1.0", platform: "browser" }),
+    appInfo: async () => ({ version: "0.1.1", platform: "browser" }),
     onNavigate: on("navigate"),
   };
 }

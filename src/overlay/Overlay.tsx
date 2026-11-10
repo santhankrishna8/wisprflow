@@ -10,8 +10,9 @@ const BARS = 26;
 
 export default function Overlay() {
   const [state, setState] = useState<DictationState>({ status: "idle", message: "" });
-  const [elapsed, setElapsed] = useState(0);
   const recRef = useRef<Recording | null>(null);
+  const startRef = useRef<Promise<Recording | null> | null>(null);
+  const timeRef = useRef<HTMLSpanElement>(null);
   const soundsRef = useRef(true);
   const barsRef = useRef<HTMLDivElement>(null);
   const demo = new URLSearchParams(location.search).get("demo");
@@ -26,18 +27,28 @@ export default function Overlay() {
       wispr.onStart(async ({ micDeviceId, sounds, wav }) => {
         soundsRef.current = sounds;
         recRef.current?.cancel();
-        try {
-          recRef.current = await startRecording(micDeviceId, wav);
-          if (sounds) chime("start");
-        } catch (err) {
-          recRef.current = null;
-          const msg = (err as Error)?.name === "NotAllowedError" ? "Microphone access was denied." : "Couldn't access the microphone.";
-          if (sounds) chime("error");
-          wispr.recorderError(msg);
-        }
+        recRef.current = null;
+        const starting = (async () => {
+          try {
+            const rec = await startRecording(micDeviceId, wav);
+            recRef.current = rec;
+            if (sounds) chime("start");
+            return rec;
+          } catch (err) {
+            recRef.current = null;
+            const msg = (err as Error)?.name === "NotAllowedError" ? "Microphone access was denied." : "Couldn't access the microphone.";
+            if (sounds) chime("error");
+            wispr.recorderError(msg);
+            return null;
+          }
+        })();
+        startRef.current = starting;
+        await starting;
       }),
       wispr.onStop(async () => {
-        const rec = recRef.current;
+        // A fast second press can arrive while the mic is still opening: wait for it.
+        const rec = (await startRef.current) ?? recRef.current;
+        startRef.current = null;
         recRef.current = null;
         if (!rec) return;
         if (soundsRef.current) chime("stop");
@@ -45,8 +56,11 @@ export default function Overlay() {
         const r = await wispr.processAudio(result);
         if (!r.ok && !r.cancelled && soundsRef.current) chime("error");
       }),
-      wispr.onCancel(() => {
-        recRef.current?.cancel();
+      wispr.onCancel(async () => {
+        const pending = startRef.current;
+        startRef.current = null;
+        const rec = (await pending) ?? recRef.current;
+        rec?.cancel();
         recRef.current = null;
       }),
     ];
@@ -61,7 +75,10 @@ export default function Overlay() {
     const smooth = new Float32Array(BARS);
     let raf = 0;
     const tick = () => {
-      setElapsed(performance.now() - t0);
+      if (timeRef.current) {
+        const ms = performance.now() - t0;
+        timeRef.current.textContent = `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
+      }
       if (recRef.current) recRef.current.levels(levels);
       else if (demo) for (let i = 0; i < BARS; i++) levels[i] = 0.25 + 0.6 * Math.abs(Math.sin(performance.now() / 260 + i * 0.55));
       const bars = barsRef.current?.children;
@@ -83,11 +100,6 @@ export default function Overlay() {
 
   const s = state.status;
   if (s === "idle") return null;
-
-  const mm = Math.floor(elapsed / 60000);
-  const ss = Math.floor((elapsed % 60000) / 1000)
-    .toString()
-    .padStart(2, "0");
 
   return (
     <div className="flex h-screen items-end justify-center pb-3">
@@ -121,8 +133,8 @@ export default function Overlay() {
                 />
               ))}
             </div>
-            <span className="w-9 text-center font-mono text-[12px] text-white/60 tabular-nums">
-              {mm}:{ss}
+            <span ref={timeRef} className="w-9 text-center font-mono text-[12px] text-white/60 tabular-nums">
+              0:00
             </span>
             <button
               onClick={() => wispr.toggleDictation()}
@@ -153,6 +165,13 @@ export default function Overlay() {
             >
               Transcribing…
             </span>
+            <button
+              onClick={() => wispr.cancelDictation()}
+              aria-label="Cancel"
+              className="flex size-7 items-center justify-center rounded-full bg-white/[0.08] text-white/70 transition hover:bg-white/15 hover:text-white"
+            >
+              <X className="size-3.5" strokeWidth={2.5} />
+            </button>
           </div>
         )}
 
