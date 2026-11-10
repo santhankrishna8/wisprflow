@@ -27,6 +27,11 @@ export default function App() {
   useResolvedTheme(settings?.theme);
 
   useEffect(() => wispr.onNavigate((r) => setRoute(r as Route)), []);
+  const [newRelease, setNewRelease] = useState<{ version: string; url: string } | null>(null);
+  useEffect(() => {
+    wispr.getUpdate().then(setNewRelease);
+    return wispr.onUpdate(setNewRelease);
+  }, []);
 
   if (!settings) return <div className="h-full bg-bg" />;
 
@@ -69,7 +74,16 @@ export default function App() {
             })}
           </nav>
 
-          <div className="no-drag mt-auto p-3">
+          <div className="no-drag mt-auto flex flex-col gap-2 p-3">
+            {newRelease && (
+              <button
+                onClick={() => wispr.openExternal(newRelease.url)}
+                className="w-full rounded-xl border border-accent/30 bg-accent-soft/60 px-3.5 py-2.5 text-left text-[12px] font-medium text-accent-text hover:bg-accent-soft"
+              >
+                Update available — v{newRelease.version}
+                <span className="mt-0.5 block text-[11px] font-normal text-fg-3">Download the new installer</span>
+              </button>
+            )}
             <StatusCard status={state.status} hotkey={settings.hotkey} />
           </div>
         </aside>

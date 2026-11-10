@@ -17,7 +17,7 @@
 - **Personal dictionary** – names, jargon and replacements, used as transcription hints and enforced during cleanup.
 - **History & stats** – searchable history grouped by day, with the original transcript next to the polished one, plus words dictated, time saved, speaking pace and streak.
 - **Thoughtful details** – onboarding, light/dark/system themes, clipboard restore, sound cues, a tray menu, launch at login, and a microphone picker.
-- **Private** – history, dictionary and settings live in a local file; API keys are encrypted with the OS keychain (Electron `safeStorage`); no telemetry.
+- **Private** – history, dictionary and settings live in a local file (history is auto-deleted after 30 days by default); API keys are encrypted with the OS keychain (Electron `safeStorage`); no telemetry. The app checks GitHub for new releases about once a day, which you can turn off in Settings → General.
 
 | Onboarding | Settings |
 | --- | --- |
@@ -54,7 +54,7 @@ You can also build the Windows installer on GitHub: open **Actions → Build Win
 
 ## On-device transcription
 
-The installers bundle a CPU build of `whisper-server` (whisper.cpp, pinned and SHA-256 verified by `scripts/fetch-whisper.cjs`). Models download from Hugging Face into WisprFlow's data folder the first time you choose them. When you start recording, WisprFlow starts the engine so the model loads while you speak; it reuses it for back-to-back dictations and stops it after 10 minutes of inactivity or when you quit.
+The installers bundle a CPU build of `whisper-server` (whisper.cpp, pinned and SHA-256 verified by `scripts/fetch-whisper.cjs`). Models download from Hugging Face into WisprFlow's data folder the first time you choose them; interrupted downloads resume and are verified against Hugging Face's SHA-256. When you start recording, WisprFlow starts the engine so the model loads while you speak; it reuses it for back-to-back dictations and stops it after 10 minutes of inactivity or when you quit.
 
 For AI cleanup without the cloud, install [Ollama](https://ollama.com), run `ollama pull llama3.2:3b`, then pick **Self-hosted → Use Ollama** under Settings → AI cleanup. If cleanup isn't configured, WisprFlow pastes the raw transcript.
 

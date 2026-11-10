@@ -22,7 +22,8 @@ const DEFAULT_SETTINGS = {
   launchAtLogin: false,
   theme: "system", // system | light | dark
   micDeviceId: "default",
-  historyRetention: "forever", // forever | 3h | 24h | 7d | 30d
+  historyRetention: "30d", // forever | 3h | 24h | 7d | 30d
+  checkUpdates: true, // ask GitHub for new releases (no data sent)
   showBubble: true, // always-on-top floating dictation button
   bubblePosition: null, // { x, y } in screen coordinates
   keys: {}, // provider -> encrypted key (base64)

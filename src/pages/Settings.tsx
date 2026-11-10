@@ -150,6 +150,9 @@ function General({ settings, update }: Props) {
                 ))}
             </Select>
           </Row>
+          <Row title="Check for updates" description="Asks GitHub whether a newer release exists, about once a day. Nothing about you is sent.">
+            <Switch checked={settings.checkUpdates} onChange={(v) => update({ checkUpdates: v })} label="Check for updates" />
+          </Row>
           <Row title="Launch at login" description="Start WisprFlow quietly in the background.">
             <Switch checked={settings.launchAtLogin} onChange={(v) => update({ launchAtLogin: v })} label="Launch at login" />
           </Row>
@@ -251,15 +254,39 @@ function TestButton({ kind }: { kind: "stt" | "llm" }) {
 }
 
 function ModelPicker({ models, value, onChange }: { models: string[]; value: string; onChange: (v: string) => void }) {
-  if (!models.length) return <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Model name" />;
+  const [custom, setCustom] = useState(false);
+  if (!models.length || custom || !models.includes(value)) {
+    return (
+      <div className="flex gap-2">
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Model name" className="font-mono text-[12.5px]" />
+        {models.length > 0 && (
+          <Button
+            size="sm"
+            onClick={() => {
+              setCustom(false);
+              onChange(models[0]);
+            }}
+          >
+            List
+          </Button>
+        )}
+      </div>
+    );
+  }
   return (
-    <Select value={models.includes(value) ? value : "__custom"} onChange={(e) => onChange(e.target.value === "__custom" ? "" : e.target.value)}>
+    <Select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__custom") setCustom(true);
+        else onChange(e.target.value);
+      }}
+    >
       {models.map((m) => (
         <option key={m} value={m}>
           {m}
         </option>
       ))}
-      {!models.includes(value) && <option value="__custom">{value || "Custom…"}</option>}
+      <option value="__custom">Other…</option>
     </Select>
   );
 }

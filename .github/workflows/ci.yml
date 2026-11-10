@@ -19,5 +19,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
+      - name: Syntax-check the main process
+        run: for f in electron/*.cjs scripts/*.cjs; do node --check "$f"; done
       - run: npm test
       - run: npm run build:renderer

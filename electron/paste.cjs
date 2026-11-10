@@ -1,9 +1,64 @@
 // Put text on the clipboard and simulate the paste shortcut in the focused app.
-const { execFile } = require("node:child_process");
+const { execFile, spawn } = require("node:child_process");
 
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, { timeout: 4000 }, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+// Starting PowerShell costs ~300-700 ms, so on Windows we keep one helper alive
+// (started while you speak) and just send it a line per paste. It exits when idle.
+let ps = null; // { proc, waiting: Array<{resolve, reject}>, idle: Timeout }
+const PS_IDLE_MS = 3 * 60_000;
+
+function psHelper() {
+  if (ps && ps.proc.exitCode === null && !ps.proc.killed) return ps;
+  const proc = spawn("powershell", ["-NoProfile", "-NoLogo", "-NonInteractive", "-Command", "-"], {
+    stdio: ["pipe", "pipe", "ignore"],
+    windowsHide: true,
+  });
+  const h = { proc, waiting: [], idle: null, buf: "" };
+  const fail = (err) => {
+    for (const w of h.waiting.splice(0)) w.reject(err);
+    if (ps === h) ps = null;
+  };
+  proc.stdout.on("data", (d) => {
+    h.buf += d;
+    let i;
+    while ((i = h.buf.indexOf("\n")) >= 0) {
+      const line = h.buf.slice(0, i).trim();
+      h.buf = h.buf.slice(i + 1);
+      if (line === "wf-ok") h.waiting.shift()?.resolve();
+    }
+  });
+  proc.on("error", fail);
+  proc.on("exit", () => fail(new Error("paste helper exited")));
+  proc.stdin.on("error", () => {});
+  proc.stdin.write("$w = New-Object -ComObject WScript.Shell\n");
+  ps = h;
+  return h;
+}
+
+/** Pre-start the Windows paste helper so the first paste isn't slow. */
+function warmPaste() {
+  if (process.platform !== "win32") return;
+  try {
+    psHelper();
+  } catch {
+    /* fall back to one-shot at paste time */
+  }
+}
+
+async function pasteViaHelper() {
+  const h = psHelper();
+  clearTimeout(h.idle);
+  h.idle = setTimeout(() => h.proc.kill(), PS_IDLE_MS);
+  h.idle.unref?.();
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("paste helper timed out")), 4000);
+    h.waiting.push({ resolve: () => (clearTimeout(timer), resolve()), reject: (e) => (clearTimeout(timer), reject(e)) });
+    h.proc.stdin.write("$w.SendKeys('^v'); 'wf-ok'\n");
   });
 }
 
@@ -13,6 +68,17 @@ async function simulatePaste() {
     return;
   }
   if (process.platform === "win32") {
+    try {
+      await pasteViaHelper();
+      return;
+    } catch {
+      try {
+        ps?.proc.kill();
+      } catch {
+        /* ignore */
+      }
+      ps = null;
+    }
     await run("powershell", [
       "-NoProfile",
       "-NonInteractive",
@@ -61,4 +127,14 @@ async function pasteText(clipboard, text, { restore = true } = {}) {
   }
 }
 
-module.exports = { pasteText };
+/** Stop the helper (app quit). */
+function stopPasteHelper() {
+  try {
+    ps?.proc.kill();
+  } catch {
+    /* ignore */
+  }
+  ps = null;
+}
+
+module.exports = { pasteText, warmPaste, stopPasteHelper };

@@ -7,6 +7,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const net = require("node:net");
+const crypto = require("node:crypto");
 const os = require("node:os");
 const { spawn } = require("node:child_process");
 
@@ -92,6 +93,12 @@ function createLocalWhisper(o) {
     }));
   }
 
+  async function sha256File(file) {
+    const hash = crypto.createHash("sha256");
+    for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
+    return hash.digest("hex");
+  }
+
   async function downloadModel(id, onProgress) {
     const m = find(id);
     if (isDownloaded(m)) return { ok: true };
@@ -101,11 +108,27 @@ function createLocalWhisper(o) {
     fs.mkdirSync(o.modelsDir, { recursive: true });
     const part = modelPath(m) + ".part";
     try {
-      const res = await fetchImpl(`${o.modelBaseUrl || HF}/${m.file}`, { signal: abort.signal });
+      // Resume an interrupted download when a partial file is present.
+      let have = 0;
+      try {
+        have = fs.statSync(part).size;
+      } catch {
+        /* fresh download */
+      }
+      if (have >= m.bytes * 1.1) {
+        fs.rmSync(part, { force: true });
+        have = 0;
+      }
+      const res = await fetchImpl(`${o.modelBaseUrl || HF}/${m.file}`, {
+        signal: abort.signal,
+        headers: have ? { Range: `bytes=${have}-` } : {},
+      });
       if (!res.ok || !res.body) throw new Error(`Download failed (${res.status}).`);
-      const total = Number(res.headers.get("content-length")) || m.bytes;
-      const out = fs.createWriteStream(part);
-      let received = 0;
+      const resumed = have > 0 && res.status === 206;
+      if (!resumed) have = 0;
+      const total = have + (Number(res.headers.get("content-length")) || m.bytes - have);
+      const out = fs.createWriteStream(part, { flags: resumed ? "a" : "w" });
+      let received = have;
       let last = 0;
       const reader = res.body.getReader();
       try {
@@ -124,12 +147,22 @@ function createLocalWhisper(o) {
         await new Promise((r) => out.end(r));
       }
       if (received < m.bytes * 0.9) throw new Error("Download was incomplete. Please try again.");
+      // Hugging Face exposes the file's SHA-256 for LFS files; verify it when present.
+      const expected = (res.headers.get("x-linked-etag") || "").replace(/"/g, "").toLowerCase();
+      if (/^[0-9a-f]{64}$/.test(expected) && (await sha256File(part)) !== expected) {
+        fs.rmSync(part, { force: true });
+        throw new Error("The downloaded model failed its integrity check. Please try again.");
+      }
       fs.renameSync(part, modelPath(m));
       onProgress?.({ id, received: total, total, done: true });
       return { ok: true };
     } catch (err) {
-      fs.rmSync(part, { force: true });
-      if (abort.signal.aborted) return { ok: false, cancelled: true };
+      if (abort.signal.aborted) {
+        fs.rmSync(part, { force: true });
+        return { ok: false, cancelled: true };
+      }
+      // Keep the partial file after network errors so the next attempt resumes.
+      if (/incomplete/.test(err.message)) fs.rmSync(part, { force: true });
       throw err;
     } finally {
       downloads.delete(id);

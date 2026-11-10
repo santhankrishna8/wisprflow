@@ -19,7 +19,8 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, RETENTION_MS } = require("./store.cjs");
 const ai = require("./ai.cjs");
-const { pasteText } = require("./paste.cjs");
+const { isNewer } = require("./version.cjs");
+const { pasteText, warmPaste, stopPasteHelper } = require("./paste.cjs");
 const { createLocalWhisper } = require("./localWhisper.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
@@ -38,6 +39,7 @@ let quitting = false;
 // idle | recording | processing | done | error
 let state = { status: "idle", message: "" };
 let activeAbort = null;
+let updateInfo = null; // { version, url } when a newer release exists
 let registeredHotkey = null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -225,6 +227,7 @@ function startDictation() {
   overlayWindow.showInactive();
   setState("recording");
   registerEscape(true);
+  warmPaste();
   const s = store.raw();
   overlayWindow.webContents.send("dictation:start", {
     micDeviceId: s.micDeviceId,
@@ -363,6 +366,26 @@ function pruneHistory() {
   if (removed) broadcast("history:replaced", store.getHistory());
 }
 
+const RELEASES_API = "https://api.github.com/repos/santhankrishna8/wisprflow/releases/latest";
+
+/** Ask GitHub for the latest release. Sends nothing about you; can be turned off in Settings. */
+async function checkForUpdate() {
+  if (!store.raw().checkUpdates) return;
+  try {
+    const res = await net.fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return;
+    const j = await res.json();
+    const version = String(j.tag_name || "").replace(/^v/, "");
+    if (isNewer(version, app.getVersion()) && updateInfo?.version !== version) {
+      updateInfo = { version, url: String(j.html_url || "https://github.com/santhankrishna8/wisprflow/releases/latest") };
+      broadcast("update:available", updateInfo);
+      updateTray();
+    }
+  } catch {
+    /* offline: try again later */
+  }
+}
+
 function notify(title, body) {
   if (Notification.isSupported()) new Notification({ title, body, silent: true }).show();
 }
@@ -410,6 +433,7 @@ function updateTray() {
     Menu.buildFromTemplate([
       { label: recording ? "Stop dictation" : "Start dictation", accelerator: registeredHotkey || undefined, click: toggleDictation },
       { type: "separator" },
+      ...(updateInfo ? [{ label: `Update available — v${updateInfo.version}`, click: () => shell.openExternal(updateInfo.url) }] : []),
       { label: "Open WisprFlow", click: showMain },
       {
         label: "Show floating button",
@@ -496,6 +520,7 @@ function registerIpc() {
       local.stop();
     }
     if ("historyRetention" in patch) pruneHistory();
+    if (patch.checkUpdates) checkForUpdate();
     if ("showBubble" in patch || "onboarded" in patch) {
       setBubbleVisible(next.showBubble && store.raw().onboarded);
       updateTray();
@@ -611,6 +636,7 @@ function registerIpc() {
   ipcMain.handle("app:openExternal", (_e, url) => {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
   });
+  ipcMain.handle("update:get", () => updateInfo);
   ipcMain.handle("app:info", () => ({ version: app.getVersion(), platform: process.platform }));
 }
 
@@ -638,6 +664,8 @@ app.whenReady().then(() => {
   createBubbleWindow();
   pruneHistory();
   setInterval(pruneHistory, 5 * 60_000).unref?.();
+  setTimeout(checkForUpdate, 15_000).unref?.();
+  setInterval(checkForUpdate, 24 * 3600_000).unref?.();
   screen.on("display-removed", () => {
     if (bubbleWindow) bubbleWindow.setBounds({ ...clampBubble(store.raw().bubblePosition || defaultBubblePosition(), true), ...BUBBLE });
   });
@@ -660,6 +688,7 @@ app.on("before-quit", () => {
 });
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  stopPasteHelper();
   local?.stop();
 });
 app.on("window-all-closed", () => {

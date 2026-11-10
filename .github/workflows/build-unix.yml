@@ -1,0 +1,38 @@
+name: Build macOS and Linux
+
+# Manual only: checks that the macOS and Linux packages still build.
+# Download the results from the run's Artifacts.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+            artifact: WisprFlow-macOS
+            glob: release/*.dmg
+          - os: ubuntu-latest
+            script: dist:linux
+            artifact: WisprFlow-Linux
+            glob: |
+              release/*.AppImage
+              release/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.glob }}

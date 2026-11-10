@@ -59,4 +59,6 @@ contextBridge.exposeInMainWorld("wispr", {
   openExternal: (url) => ipcRenderer.invoke("app:openExternal", url),
   appInfo: () => ipcRenderer.invoke("app:info"),
   onNavigate: on("navigate"),
+  getUpdate: () => ipcRenderer.invoke("update:get"),
+  onUpdate: on("update:available"),
 });

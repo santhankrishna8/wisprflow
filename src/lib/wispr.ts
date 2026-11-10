@@ -27,6 +27,7 @@ export interface Settings {
   theme: Theme;
   micDeviceId: string;
   historyRetention: "forever" | "3h" | "24h" | "7d" | "30d";
+  checkUpdates: boolean;
   showBubble: boolean;
   hasKey: Record<string, boolean>;
   keysEncrypted?: boolean;
@@ -126,6 +127,8 @@ export interface WisprApi {
   openExternal(url: string): Promise<void>;
   appInfo(): Promise<{ version: string; platform: string }>;
   onNavigate(cb: (route: string) => void): Unsub;
+  getUpdate(): Promise<{ version: string; url: string } | null>;
+  onUpdate(cb: (u: { version: string; url: string }) => void): Unsub;
 }
 
 declare global {
@@ -189,7 +192,8 @@ function createMock(): WisprApi {
     launchAtLogin: false,
     theme: (params.get("theme") as Theme) || "system",
     micDeviceId: "default",
-    historyRetention: "forever",
+    historyRetention: "30d",
+    checkUpdates: true,
     showBubble: true,
     hasKey: { openai: true },
   };
@@ -312,6 +316,8 @@ function createMock(): WisprApi {
     openExternal: async (url) => void window.open(url, "_blank"),
     appInfo: async () => ({ version: "0.1.1", platform: "browser" }),
     onNavigate: on("navigate"),
+    getUpdate: async () => null,
+    onUpdate: on("update"),
   };
 }
 

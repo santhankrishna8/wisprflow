@@ -8,13 +8,17 @@ const { createLocalWhisper } = require("../electron/localWhisper.cjs");
 
 const MODEL = { id: "mini", name: "Mini", file: "ggml-mini.bin", bytes: 200_000, size: "0.2 MB", blurb: "" };
 
-function modelHost(bytes, { slow = false } = {}) {
+function modelHost(bytes, { slow = false, etag = "" } = {}) {
   return new Promise((resolve) => {
     const srv = http.createServer(async (req, res) => {
       if (req.url !== "/ggml-mini.bin") return res.writeHead(404).end();
-      res.writeHead(200, { "content-length": bytes });
+      const range = /bytes=(\d+)-/.exec(req.headers.range || "");
+      const start = range ? Number(range[1]) : 0;
+      const headers = { "content-length": bytes - start };
+      if (etag) headers["x-linked-etag"] = `"${etag}"`;
+      res.writeHead(range ? 206 : 200, headers);
       const chunk = Buffer.alloc(20_000, 7);
-      for (let sent = 0; sent < bytes; sent += chunk.length) {
+      for (let sent = start; sent < bytes; sent += chunk.length) {
         if (!res.write(chunk.subarray(0, Math.min(chunk.length, bytes - sent)))) await new Promise((r) => res.once("drain", r));
         if (slow) await new Promise((r) => setTimeout(r, 30));
       }
@@ -131,4 +135,33 @@ test("clear errors when the model or engine is missing", async () => {
   const noEngine = createLocalWhisper({ binDir: path.join(dir, "nope"), modelsDir: dir, models: [MODEL] });
   assert.strictEqual(noEngine.engineAvailable(), false);
   await assert.rejects(noEngine.ensureServer("mini"), /isn't available/);
+});
+
+test("an interrupted download resumes from the partial file", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-"));
+  fs.mkdirSync(path.join(dir, "models"));
+  fs.writeFileSync(path.join(dir, "models", "ggml-mini.bin.part"), Buffer.alloc(100_000, 7));
+  const { srv, url } = await modelHost(MODEL.bytes);
+  const lw = make(dir, url);
+  const events = [];
+  assert.deepStrictEqual(await lw.downloadModel("mini", (p) => events.push(p)), { ok: true });
+  assert.ok(events[0].received >= 100_000, "progress starts from the resumed offset");
+  assert.strictEqual(fs.statSync(path.join(dir, "models", "ggml-mini.bin")).size, MODEL.bytes);
+  srv.close();
+});
+
+test("a download is verified against the server's SHA-256", async () => {
+  const crypto = require("node:crypto");
+  const good = crypto.createHash("sha256").update(Buffer.alloc(MODEL.bytes, 7)).digest("hex");
+  for (const [etag, ok] of [[good, true], ["0".repeat(64), false]]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-"));
+    const { srv, url } = await modelHost(MODEL.bytes, { etag });
+    const lw = make(dir, url);
+    if (ok) assert.deepStrictEqual(await lw.downloadModel("mini"), { ok: true });
+    else {
+      await assert.rejects(lw.downloadModel("mini"), /integrity/);
+      assert.strictEqual(lw.listModels()[0].downloaded, false);
+    }
+    srv.close();
+  }
 });

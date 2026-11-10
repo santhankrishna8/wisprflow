@@ -58,3 +58,12 @@ test("cleanup rejects truncated output so raw text is pasted instead", async () 
     global.fetch = realFetch;
   }
 });
+
+test("isNewer compares release versions numerically", () => {
+  const { isNewer } = require("../electron/version.cjs");
+  assert.ok(isNewer("0.2.0", "0.1.9"));
+  assert.ok(isNewer("v0.10.0", "0.9.0"));
+  assert.ok(!isNewer("0.1.1", "0.1.1"));
+  assert.ok(!isNewer("0.1.0", "0.1.1"));
+  assert.ok(!isNewer("garbage", "0.1.1"));
+});
