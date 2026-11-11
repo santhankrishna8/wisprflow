@@ -20,6 +20,7 @@ const crypto = require("node:crypto");
 const { createStore, RETENTION_MS } = require("./store.cjs");
 const ai = require("./ai.cjs");
 const { isNewer } = require("./version.cjs");
+const { pickAsset, downloadInstaller } = require("./updater.cjs");
 const fs = require("node:fs");
 const { pasteText, warmPaste, stopPasteHelper, activeWindow } = require("./paste.cjs");
 const fmt = require("./format.cjs");
@@ -41,8 +42,9 @@ let quitting = false;
 // idle | recording | processing | done | error
 let state = { status: "idle", message: "" };
 let activeAbort = null;
+let pasteTarget = null; // { app, title, hwnd, own } of that window, once known
 let activeApp = Promise.resolve(null); // the window the user was typing in when dictation started
-let updateInfo = null; // { version, url } when a newer release exists
+let updateInfo = null; // { version, url, canInstall, asset } when a newer release exists
 let registeredHotkey = null;
 
 /**
@@ -304,8 +306,9 @@ function startDictation() {
   registerEscape(true);
   warmPaste();
   const s = store.raw();
-  // Note which app is in front now, while the user is still in it.
-  activeApp = s.useAppContext === false ? Promise.resolve(null) : activeWindow();
+  // Note which window is in front now, while the user is still in it: the text is pasted back there,
+  // and (unless turned off in Settings) its app and title shape the formatting.
+  activeApp = activeWindow();
   overlayWindow.webContents.send("dictation:start", {
     micDeviceId: s.micDeviceId,
     sounds: s.soundEffects,
@@ -357,7 +360,8 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       return { ok: false, error: "Too short — hold on a little longer." };
     }
     const language = fmt.normalizeLanguage(settings.language);
-    const win = await Promise.race([activeApp, new Promise((r) => setTimeout(() => r(null), 1500))]);
+    const win = await Promise.race([activeApp, new Promise((r) => setTimeout(() => r(null), 800))]);
+    pasteTarget = win;
     const context = { ...fmt.resolveContext(settings, win), role: settings.role, about: settings.aboutYou, language };
     const terms = [
       ...dictionary.map((d) => d.to || d.word).filter(Boolean),
@@ -431,17 +435,21 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
     broadcast("history:added", entry);
     pruneHistory();
 
-    setState("done", cleanupError ? "Pasted without AI polish" : settings.autoPaste ? "Pasted" : "Copied");
+    // Paste first, then report what really happened (the overlay used to say "Pasted" before pasting).
+    let message = settings.autoPaste ? "Pasted" : "Copied";
     if (settings.autoPaste) {
       try {
-        await pasteText(clipboard, text, { restore: settings.restoreClipboard });
+        await pasteText(clipboard, text, { restore: settings.restoreClipboard, target: pasteTarget });
       } catch (err) {
         clipboard.writeText(text);
+        message = "Couldn't paste — it's on your clipboard";
         notify("Copied to clipboard", err.message);
       }
     } else {
       clipboard.writeText(text);
     }
+    if (cleanupError && message === "Pasted") message = "Pasted without AI polish";
+    setState("done", message);
     hideOverlaySoon(cleanupError ? 2200 : 900);
     return { ok: true, entry, cleanupError };
   } catch (err) {
@@ -461,22 +469,98 @@ function pruneHistory() {
 }
 
 const RELEASES_API = "https://api.github.com/repos/santhankrishna8/wisprflow/releases/latest";
+const RELEASES_PAGE = "https://github.com/santhankrishna8/wisprflow/releases/latest";
+const INSTALLER_NAME = "SayType-Setup.exe";
+let updateJob = null; // AbortController while the installer downloads
 
-/** Ask GitHub for the latest release. Sends nothing about you; can be turned off in Settings. */
-async function checkForUpdate() {
-  if (!store.raw().checkUpdates) return;
+/** What the interface may see of the update (never the download details). */
+function publicUpdate() {
+  return updateInfo ? { version: updateInfo.version, url: updateInfo.url, canInstall: updateInfo.canInstall } : null;
+}
+
+/**
+ * Ask GitHub for the latest release. Sends nothing about you. The daily background check
+ * can be turned off in Settings; "Check now" always works.
+ * @returns {Promise<{ok: boolean, update: object|null, error?: string}>}
+ */
+async function checkForUpdate({ manual = false } = {}) {
+  if (!manual && !store.raw().checkUpdates) return { ok: true, update: publicUpdate() };
   try {
     const res = await net.fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" }, signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return;
+    if (!res.ok) return { ok: false, update: publicUpdate(), error: `GitHub answered ${res.status}.` };
     const j = await res.json();
     const version = String(j.tag_name || "").replace(/^v/, "");
-    if (isNewer(version, app.getVersion()) && updateInfo?.version !== version) {
-      updateInfo = { version, url: String(j.html_url || "https://github.com/santhankrishna8/wisprflow/releases/latest") };
-      broadcast("update:available", updateInfo);
+    if (isNewer(version, app.getVersion())) {
+      if (updateInfo?.version !== version) {
+        const asset = pickAsset(j, INSTALLER_NAME);
+        updateInfo = {
+          version,
+          url: String(j.html_url || RELEASES_PAGE),
+          canInstall: process.platform === "win32" && app.isPackaged && Boolean(asset),
+          asset,
+        };
+        broadcast("update:available", publicUpdate());
+        updateTray();
+      }
+    } else if (updateInfo) {
+      updateInfo = null;
+      broadcast("update:available", null);
       updateTray();
     }
-  } catch {
-    /* offline: try again later */
+    return { ok: true, update: publicUpdate() };
+  } catch (err) {
+    return { ok: false, update: publicUpdate(), error: err.name === "TimeoutError" ? "Timed out reaching GitHub." : "Couldn't reach GitHub." };
+  }
+}
+
+function updateProgress(p) {
+  broadcast("update:progress", p);
+}
+
+/**
+ * Download the new installer inside the app, check it, run it quietly and restart.
+ * Where that isn't possible (not Windows, a dev build) the release page opens instead.
+ */
+async function installUpdate() {
+  if (!updateInfo) return { ok: false, error: "No update to install." };
+  if (!updateInfo.canInstall) {
+    shell.openExternal(updateInfo.url);
+    return { ok: true, openedPage: true };
+  }
+  if (updateJob) return { ok: false, error: "Already downloading." };
+  const { asset, version } = updateInfo;
+  const dir = path.join(app.getPath("temp"), "saytype-update");
+  const file = path.join(dir, `SayType-Setup-${version}.exe`);
+  const abort = new AbortController();
+  updateJob = abort;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    updateProgress({ phase: "downloading", received: 0, total: asset.size });
+    await downloadInstaller({
+      asset,
+      file,
+      fetchImpl: (url, opts) => net.fetch(url, opts),
+      signal: abort.signal,
+      onProgress: (p) => updateProgress({ phase: "downloading", ...p }),
+    });
+
+    updateProgress({ phase: "installing" });
+    // Let go of everything the installer needs to replace, then hand over and quit.
+    quitting = true;
+    store?.flush();
+    await local?.stop();
+    stopPasteHelper();
+    globalShortcut.unregisterAll();
+    // /S installs quietly over the current version; --force-run starts the new one afterwards.
+    require("node:child_process").spawn(file, ["/S", "--updated", "--force-run"], { detached: true, stdio: "ignore", windowsHide: false }).unref();
+    setTimeout(() => app.quit(), 500);
+    return { ok: true };
+  } catch (err) {
+    const message = abort.signal.aborted ? "Cancelled." : err.message;
+    updateProgress({ phase: "error", error: message });
+    return { ok: false, error: message };
+  } finally {
+    updateJob = null;
   }
 }
 
@@ -527,7 +611,9 @@ function updateTray() {
     Menu.buildFromTemplate([
       { label: recording ? "Stop dictation" : "Start dictation", accelerator: registeredHotkey || undefined, click: toggleDictation },
       { type: "separator" },
-      ...(updateInfo ? [{ label: `Update available — v${updateInfo.version}`, click: () => shell.openExternal(updateInfo.url) }] : []),
+      ...(updateInfo
+        ? [{ label: updateInfo.canInstall ? `Install update — v${updateInfo.version}` : `Update available — v${updateInfo.version}`, click: () => (showMain("home"), installUpdate()) }]
+        : []),
       { label: "Open SayType", click: showMain },
       {
         label: "Show edge handle",
@@ -755,7 +841,9 @@ function registerIpc() {
   ipcMain.handle("app:openExternal", (_e, url) => {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
   });
-  ipcMain.handle("update:get", () => updateInfo);
+  ipcMain.handle("update:get", publicUpdate);
+  ipcMain.handle("update:check", () => checkForUpdate({ manual: true }));
+  ipcMain.handle("update:install", installUpdate);
   ipcMain.handle("app:info", () => ({ version: app.getVersion(), platform: process.platform }));
 }
 

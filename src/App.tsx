@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { BookA, History as HistoryIcon, Home as HomeIcon, Settings as SettingsIcon } from "lucide-react";
 import { Hotkey, Logo, ToastProvider, cx } from "./components/ui";
-import { useDictationState, useHistory, useResolvedTheme, useSettings } from "./lib/useApp";
+import { useDictationState, useHistory, useResolvedTheme, useSettings, useUpdate } from "./lib/useApp";
+import { UpdateCard } from "./components/UpdateCard";
 import { isMac, bridge } from "./lib/bridge";
 import Home from "./pages/Home";
 import History from "./pages/History";
@@ -27,11 +28,7 @@ export default function App() {
   useResolvedTheme(settings?.theme);
 
   useEffect(() => bridge.onNavigate((r) => setRoute(r as Route)), []);
-  const [newRelease, setNewRelease] = useState<{ version: string; url: string } | null>(null);
-  useEffect(() => {
-    bridge.getUpdate().then(setNewRelease);
-    return bridge.onUpdate(setNewRelease);
-  }, []);
+  const { update: newRelease, progress: updateProgress, install: installUpdate } = useUpdate();
 
   if (!settings) return <div className="h-full bg-bg" />;
 
@@ -75,15 +72,7 @@ export default function App() {
           </nav>
 
           <div className="no-drag mt-auto flex flex-col gap-2 p-3">
-            {newRelease && (
-              <button
-                onClick={() => bridge.openExternal(newRelease.url)}
-                className="w-full rounded-xl border border-accent/30 bg-accent-soft/60 px-3.5 py-2.5 text-left text-[12px] font-medium text-accent-text hover:bg-accent-soft"
-              >
-                Update available — v{newRelease.version}
-                <span className="mt-0.5 block text-[11px] font-normal text-fg-3">Download the new installer</span>
-              </button>
-            )}
+            {newRelease && <UpdateCard update={newRelease} progress={updateProgress} install={installUpdate} />}
             <StatusCard status={state.status} hotkey={settings.hotkey} />
           </div>
         </aside>

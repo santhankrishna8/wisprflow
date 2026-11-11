@@ -63,5 +63,8 @@ contextBridge.exposeInMainWorld("saytype", {
   appInfo: () => ipcRenderer.invoke("app:info"),
   onNavigate: on("navigate"),
   getUpdate: () => ipcRenderer.invoke("update:get"),
+  checkUpdate: () => ipcRenderer.invoke("update:check"),
+  installUpdate: () => ipcRenderer.invoke("update:install"),
+  onUpdateProgress: on("update:progress"),
   onUpdate: on("update:available"),
 });

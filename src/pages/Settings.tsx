@@ -19,6 +19,8 @@ import {
 } from "../components/ui";
 import { FORMAT_MODES, INDIC, LLM_PROVIDERS, OLLAMA_PRESET, ROLES, STT_PROVIDERS, TONES, languageName, normalizeLanguage } from "../lib/providers";
 import { LanguagePicker } from "../components/LanguagePicker";
+import { CheckUpdatesButton, UpdateCard } from "../components/UpdateCard";
+import { useUpdate } from "../lib/useApp";
 import { LocalModelPicker, useLocalModels } from "../components/LocalModels";
 import { isMac, bridge } from "../lib/bridge";
 import type { LlmProvider, Settings, SttProvider, Theme } from "../lib/bridge";
@@ -612,6 +614,7 @@ function ThemePreview({ mode }: { mode: Theme }) {
 
 function About({ settings }: { settings: Settings }) {
   const [info, setInfo] = useState<{ version: string } | null>(null);
+  const { update, progress, checking, checkResult, check, install } = useUpdate();
   useEffect(() => {
     bridge.appInfo().then(setInfo);
   }, []);
@@ -628,6 +631,30 @@ function About({ settings }: { settings: Settings }) {
         </div>
       </Card>
       <Card>
+        <Row
+          title={update ? `Version ${update.version} is available` : "Updates"}
+          description={
+            update
+              ? "Installs in place and restarts SayType. Your settings, history and models are kept."
+              : checkResult === "none"
+                ? "You're on the latest version."
+                : checkResult === "failed"
+                  ? "Couldn't reach GitHub. Check your connection and try again."
+                  : "SayType checks GitHub about once a day. You can also check now."
+          }
+        >
+          {update && progress && progress.phase !== "error" ? (
+            <div className="w-[260px]">
+              <UpdateCard update={update} progress={progress} install={install} />
+            </div>
+          ) : update ? (
+            <Button variant="primary" size="sm" onClick={install}>
+              {progress?.phase === "error" ? "Try again" : update.canInstall ? "Install and restart" : "Get the update"}
+            </Button>
+          ) : (
+            <CheckUpdatesButton checking={checking} onClick={check} />
+          )}
+        </Row>
         <Row title="Your data stays yours" description="History, dictionary and settings are stored locally. API keys are encrypted with your OS keychain. No telemetry, ever.">
           <ShieldCheck className="size-5 text-success" />
         </Row>

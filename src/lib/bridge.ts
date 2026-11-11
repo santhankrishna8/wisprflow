@@ -55,6 +55,21 @@ export interface HistoryEntry {
   context?: string;
 }
 
+export interface UpdateInfo {
+  version: string;
+  /** The release page. */
+  url: string;
+  /** True when the app can download and install it by itself. */
+  canInstall: boolean;
+}
+
+export interface UpdateProgress {
+  phase: "downloading" | "installing" | "error";
+  received?: number;
+  total?: number;
+  error?: string;
+}
+
 export interface BubbleLayout {
   side: "left" | "right";
   collapsed: boolean;
@@ -151,8 +166,11 @@ export interface BridgeApi {
   openExternal(url: string): Promise<void>;
   appInfo(): Promise<{ version: string; platform: string }>;
   onNavigate(cb: (route: string) => void): Unsub;
-  getUpdate(): Promise<{ version: string; url: string } | null>;
-  onUpdate(cb: (u: { version: string; url: string }) => void): Unsub;
+  getUpdate(): Promise<UpdateInfo | null>;
+  onUpdate(cb: (u: UpdateInfo | null) => void): Unsub;
+  checkUpdate(): Promise<{ ok: boolean; update: UpdateInfo | null; error?: string }>;
+  installUpdate(): Promise<{ ok: boolean; error?: string; openedPage?: boolean }>;
+  onUpdateProgress(cb: (p: UpdateProgress) => void): Unsub;
 }
 
 declare global {
@@ -350,8 +368,21 @@ function createMock(): BridgeApi {
     openExternal: async (url) => void window.open(url, "_blank"),
     appInfo: async () => ({ version: "0.2.0", platform: "browser" }),
     onNavigate: on("navigate"),
-    getUpdate: async () => null,
+    getUpdate: async () => (params.has("update") ? { version: "9.9.9", url: "https://github.com", canInstall: true } : null),
     onUpdate: on("update"),
+    checkUpdate: async () => {
+      await wait(600);
+      return { ok: true, update: params.has("update") ? { version: "9.9.9", url: "https://github.com", canInstall: true } : null };
+    },
+    installUpdate: async () => {
+      for (let i = 1; i <= 20; i++) {
+        await wait(120);
+        emit("updateProgress", { phase: "downloading", received: i * 5.6e6, total: 1.12e8 });
+      }
+      emit("updateProgress", { phase: "installing" });
+      return { ok: true };
+    },
+    onUpdateProgress: on("updateProgress"),
   };
 }
 

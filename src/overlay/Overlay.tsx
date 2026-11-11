@@ -98,6 +98,18 @@ export default function Overlay() {
     return () => cancelAnimationFrame(raf);
   }, [state.status, demo]);
 
+  // How long transcription has been running, so a slow engine doesn't look frozen.
+  const [waited, setWaited] = useState(0);
+  useEffect(() => {
+    if (state.status !== "processing") {
+      setWaited(0);
+      return;
+    }
+    const t0 = Date.now();
+    const id = setInterval(() => setWaited(Math.floor((Date.now() - t0) / 1000)), 500);
+    return () => clearInterval(id);
+  }, [state.status]);
+
   const s = state.status;
   if (s === "idle") return null;
 
@@ -164,8 +176,9 @@ export default function Overlay() {
                 animation: "shimmer 1.8s linear infinite",
               }}
             >
-              Transcribing…
+              {waited >= 2 ? `Transcribing… ${waited}s` : "Transcribing…"}
             </span>
+            {waited >= 10 && <span className="max-w-[150px] text-[10.5px] leading-tight text-white/65">Large models are slow on a CPU. Groq is much faster.</span>}
             <button
               onClick={() => bridge.cancelDictation()}
               aria-label="Cancel"

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { bridge } from "./bridge";
-import type { DictationState, HistoryEntry, Settings } from "./bridge";
+import type { DictationState, HistoryEntry, Settings, UpdateInfo, UpdateProgress } from "./bridge";
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -60,4 +60,32 @@ export function useResolvedTheme(theme: Settings["theme"] | undefined) {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
   return dark;
+}
+
+/** A newer release, if any, and the progress of installing it from inside the app. */
+export function useUpdate() {
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [progress, setProgress] = useState<UpdateProgress | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<"none" | "failed" | null>(null);
+  useEffect(() => {
+    bridge.getUpdate().then(setUpdate);
+    const offs = [bridge.onUpdate(setUpdate), bridge.onUpdateProgress(setProgress)];
+    return () => offs.forEach((f) => f());
+  }, []);
+  const check = useCallback(async () => {
+    setChecking(true);
+    setCheckResult(null);
+    const r = await bridge.checkUpdate();
+    setChecking(false);
+    setUpdate(r.update);
+    setCheckResult(!r.ok ? "failed" : r.update ? null : "none");
+  }, []);
+  const install = useCallback(async () => {
+    setProgress({ phase: "downloading", received: 0 });
+    const r = await bridge.installUpdate();
+    if (r.openedPage) setProgress(null);
+    else if (!r.ok) setProgress({ phase: "error", error: r.error });
+  }, []);
+  return { update, progress, checking, checkResult, check, install };
 }

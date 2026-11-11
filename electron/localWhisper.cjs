@@ -227,7 +227,10 @@ function createLocalWhisper(o) {
       "--port", String(port),
       "--threads", String(defaultThreads()),
       "--language", "auto",
-      "--max-len", "4096",
+      // Speed: accept the first decode instead of re-decoding low-confidence speech up to five
+      // times (typical for Indian languages), and skip word timings, which dictation never uses.
+      "--no-fallback",
+      "--no-timestamps",
     ];
     const proc = spawn(command, args, {
       cwd: path.dirname(command),
@@ -257,6 +260,8 @@ function createLocalWhisper(o) {
     form.append("temperature", "0.0");
     form.append("language", language && language !== "auto" ? language : "auto");
     for (const [k, v] of Object.entries(DECODER_FIELDS)) form.append(k, v);
+    form.append("temperature_inc", "0");
+    form.append("no_timestamps", "true");
     if (prompt) form.append("prompt", prompt);
     const res = await fetch(`http://127.0.0.1:${port}/inference`, { method: "POST", body: form, signal });
     if (!res.ok) throw new Error(`Local transcription failed (${res.status}).`);
