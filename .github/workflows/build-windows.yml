@@ -51,7 +51,9 @@ jobs:
       - name: Smoke-test pasting into Notepad (real Electron clipboard)
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath node_modules/electron/dist/electron.exe -ArgumentList "scripts/smoke-paste.cjs" -Wait -PassThru
+          $electron = node -e "console.log(require('electron'))"
+          "Electron: $electron"
+          $p = Start-Process -FilePath $electron -ArgumentList "scripts/smoke-paste.cjs" -Wait -PassThru
           Get-Content paste-smoke.log
           if ($p.ExitCode -ne 0) { throw "Paste smoke test failed (exit $($p.ExitCode))" }
       - name: Report installer size
