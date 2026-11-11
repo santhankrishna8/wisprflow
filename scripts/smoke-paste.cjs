@@ -35,7 +35,16 @@ async function main() {
 
     execFileSync("powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value '${TEXT}'`]);
     console.log("Focused again before paste:", win32.focus(target));
-    await simulatePaste();
+    // Take the focus away first, as happens when another window pops up while transcribing.
+    const other = spawn("notepad.exe", [], { detached: false });
+    await sleep(1500);
+    console.log("Front window before paste:", win32.activeWindow()?.title);
+    try {
+      await simulatePaste({ ...target, app: "notepad" });
+    } finally {
+      other.kill();
+    }
+    console.log("Paste report:", JSON.stringify(require("../electron/paste.cjs").lastPaste()));
     await sleep(800);
 
     const len = Number(SendMessageLen(edit, 0x000e, 0, 0)); // WM_GETTEXTLENGTH

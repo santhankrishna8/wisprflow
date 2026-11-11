@@ -1,8 +1,8 @@
 // Put text on the clipboard and simulate the paste shortcut in the focused app.
 //
-// The paste itself is exactly what shipped in 0.1.x: a small PowerShell process that
-// does nothing but WScript.Shell SendKeys('^v'). Keep it that way. Reading which app is
-// in front (for formatting) lives in win32.cjs and never touches this helper.
+// Windows: first choice is a direct SendInput Ctrl+V (win32.cjs), after making sure the
+// window you were typing in is in front. If that can't be used, a PowerShell SendKeys
+// helper does it. Every attempt is recorded (lastPaste) so failures can be diagnosed.
 const { execFile, spawn } = require("node:child_process");
 const win32 = require("./win32.cjs");
 
@@ -67,7 +67,40 @@ async function pasteViaHelper() {
   });
 }
 
-async function simulatePaste() {
+let last = null; // what happened on the most recent paste, for Settings -> About
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** @param {{handle?: unknown, hwnd?: number, app?: string, own?: boolean}|null} [target] the window dictation started in */
+async function simulatePaste(target) {
+  last = { at: new Date().toISOString(), platform: process.platform, method: "", target: target?.app || "", front: "", refocused: false, error: "" };
+  if (process.platform === "win32" && win32.available()) {
+    try {
+      const front = win32.activeWindow();
+      last.front = front?.own ? "SayType" : front?.app || "(none)";
+      // If something else (or SayType itself) is in front, go back to where you were typing.
+      if (target?.handle && !target.own && (!front || front.hwnd !== target.hwnd)) {
+        last.refocused = win32.focus(target);
+        await sleep(120);
+        last.front += ` -> ${win32.activeWindow()?.app || "(none)"}`;
+      }
+      await win32.pressPaste();
+      last.method = "SendInput";
+      return;
+    } catch (err) {
+      last.error = `SendInput: ${err.message}`;
+      if (/blocked/.test(err.message)) throw err;
+    }
+  }
+  last.method = process.platform === "win32" ? "PowerShell" : "system";
+  try {
+    await legacyPaste();
+  } catch (err) {
+    last.error = `${last.error ? last.error + "; " : ""}${last.method}: ${err.message}`;
+    throw err;
+  }
+}
+
+async function legacyPaste() {
   if (process.platform === "darwin") {
     await run("osascript", ["-e", 'tell application "System Events" to keystroke "v" using command down']);
     return;
@@ -119,16 +152,16 @@ function snapshot(clipboard) {
   return data;
 }
 
-async function pasteText(clipboard, text, { restore = true } = {}) {
+async function pasteText(clipboard, text, { restore = true, target = null } = {}) {
   const previous = restore ? snapshot(clipboard) : null;
   clipboard.writeText(text);
   await new Promise((r) => setTimeout(r, 60));
-  await simulatePaste();
+  await simulatePaste(target);
   if (restore && previous) {
     setTimeout(() => {
       // Only restore if nothing else changed the clipboard meanwhile.
       if (clipboard.readText() === text) clipboard.write(previous);
-    }, 900);
+    }, 1500); // some apps read the clipboard a moment after Ctrl+V
   }
 }
 
@@ -171,4 +204,4 @@ async function activeWindow() {
   }
 }
 
-module.exports = { pasteText, warmPaste, stopPasteHelper, activeWindow, simulatePaste };
+module.exports = { pasteText, warmPaste, stopPasteHelper, activeWindow, simulatePaste, lastPaste: () => last };

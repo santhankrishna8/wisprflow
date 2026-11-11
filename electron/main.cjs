@@ -22,7 +22,7 @@ const ai = require("./ai.cjs");
 const { isNewer } = require("./version.cjs");
 const { pickAsset, downloadInstaller } = require("./updater.cjs");
 const fs = require("node:fs");
-const { pasteText, warmPaste, stopPasteHelper, activeWindow } = require("./paste.cjs");
+const { pasteText, warmPaste, stopPasteHelper, activeWindow, lastPaste } = require("./paste.cjs");
 const fmt = require("./format.cjs");
 const { createLocalWhisper } = require("./localWhisper.cjs");
 
@@ -305,8 +305,9 @@ function startDictation() {
   registerEscape(true);
   warmPaste();
   const s = store.raw();
-  // Note which app is in front now, while the user is still in it, to format for it.
-  activeApp = s.useAppContext === false ? Promise.resolve(null) : activeWindow();
+  // Note which window is in front now, while the user is still in it: the text goes back
+  // there, and (unless turned off in Settings) its app and title shape the formatting.
+  activeApp = activeWindow();
   overlayWindow.webContents.send("dictation:start", {
     micDeviceId: s.micDeviceId,
     sounds: s.soundEffects,
@@ -436,10 +437,10 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
     let message = settings.autoPaste ? "Pasted" : "Copied";
     if (settings.autoPaste) {
       try {
-        await pasteText(clipboard, text, { restore: settings.restoreClipboard });
+        await pasteText(clipboard, text, { restore: settings.restoreClipboard, target: win });
       } catch (err) {
         clipboard.writeText(text);
-        message = "Couldn't paste — it's on your clipboard";
+        message = /blocked/.test(err.message) ? "Windows blocked the paste — press Ctrl+V" : "Couldn't paste — press Ctrl+V";
         notify("Copied to clipboard", err.message);
       }
     } else {
@@ -838,6 +839,7 @@ function registerIpc() {
   ipcMain.handle("app:openExternal", (_e, url) => {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
   });
+  ipcMain.handle("paste:last", () => lastPaste());
   ipcMain.handle("update:get", publicUpdate);
   ipcMain.handle("update:check", () => checkForUpdate({ manual: true }));
   ipcMain.handle("update:install", installUpdate);

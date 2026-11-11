@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld("saytype", {
   openExternal: (url) => ipcRenderer.invoke("app:openExternal", url),
   appInfo: () => ipcRenderer.invoke("app:info"),
   onNavigate: on("navigate"),
+  lastPaste: () => ipcRenderer.invoke("paste:last"),
   getUpdate: () => ipcRenderer.invoke("update:get"),
   checkUpdate: () => ipcRenderer.invoke("update:check"),
   installUpdate: () => ipcRenderer.invoke("update:install"),

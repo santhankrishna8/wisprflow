@@ -55,6 +55,15 @@ export interface HistoryEntry {
   context?: string;
 }
 
+export interface PasteReport {
+  at: string;
+  method: string;
+  target: string;
+  front: string;
+  refocused: boolean;
+  error: string;
+}
+
 export interface UpdateInfo {
   version: string;
   /** The release page. */
@@ -166,6 +175,8 @@ export interface BridgeApi {
   openExternal(url: string): Promise<void>;
   appInfo(): Promise<{ version: string; platform: string }>;
   onNavigate(cb: (route: string) => void): Unsub;
+  /** What happened the last time text was pasted (for troubleshooting). */
+  lastPaste(): Promise<PasteReport | null>;
   getUpdate(): Promise<UpdateInfo | null>;
   onUpdate(cb: (u: UpdateInfo | null) => void): Unsub;
   checkUpdate(): Promise<{ ok: boolean; update: UpdateInfo | null; error?: string }>;
@@ -368,6 +379,7 @@ function createMock(): BridgeApi {
     openExternal: async (url) => void window.open(url, "_blank"),
     appInfo: async () => ({ version: "0.2.0", platform: "browser" }),
     onNavigate: on("navigate"),
+    lastPaste: async () => null,
     getUpdate: async () => (params.has("update") ? { version: "9.9.9", url: "https://github.com", canInstall: true } : null),
     onUpdate: on("update"),
     checkUpdate: async () => {

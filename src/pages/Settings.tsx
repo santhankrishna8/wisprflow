@@ -23,7 +23,7 @@ import { CheckUpdatesButton, UpdateCard } from "../components/UpdateCard";
 import { useUpdate } from "../lib/useApp";
 import { LocalModelPicker, useLocalModels } from "../components/LocalModels";
 import { isMac, bridge } from "../lib/bridge";
-import type { LlmProvider, Settings, SttProvider, Theme } from "../lib/bridge";
+import type { LlmProvider, PasteReport, Settings, SttProvider, Theme } from "../lib/bridge";
 
 type Tab = "general" | "transcription" | "cleanup" | "appearance" | "about";
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -612,6 +612,35 @@ function ThemePreview({ mode }: { mode: Theme }) {
   );
 }
 
+/** Shows how the last paste went, so a paste that didn't land can be diagnosed. */
+function PasteReportRow() {
+  const [r, setR] = useState<PasteReport | null>(null);
+  const toast = useToast();
+  useEffect(() => {
+    bridge.lastPaste().then(setR);
+  }, []);
+  const text = r
+    ? `Last paste ${new Date(r.at).toLocaleTimeString()}: ${r.error ? "failed" : "sent"} via ${r.method || "?"} · typed in: ${r.target || "unknown"} · in front at paste: ${r.front || "unknown"}${r.refocused ? " (brought back)" : ""}${r.error ? ` · ${r.error}` : ""}`
+    : "Nothing pasted yet since SayType started. Dictate once, then come back here.";
+  return (
+    <Row title="Paste check" description={text}>
+      <Button
+        size="sm"
+        onClick={async () => {
+          const fresh = await bridge.lastPaste();
+          setR(fresh);
+          if (fresh) {
+            await bridge.copy(JSON.stringify(fresh));
+            toast("Paste details copied", "success");
+          }
+        }}
+      >
+        Refresh and copy
+      </Button>
+    </Row>
+  );
+}
+
 function About({ settings }: { settings: Settings }) {
   const [info, setInfo] = useState<{ version: string } | null>(null);
   const { update, progress, checking, checkResult, check, install } = useUpdate();
@@ -655,6 +684,7 @@ function About({ settings }: { settings: Settings }) {
             <CheckUpdatesButton checking={checking} onClick={check} />
           )}
         </Row>
+        <PasteReportRow />
         <Row title="Your data stays yours" description="History, dictionary and settings are stored locally. API keys are encrypted with your OS keychain. No telemetry, ever.">
           <ShieldCheck className="size-5 text-success" />
         </Row>
