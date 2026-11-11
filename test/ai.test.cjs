@@ -39,7 +39,7 @@ test("pruneHistory removes only entries older than the retention window", () => 
 
 test("a corrupt data file is backed up, not silently overwritten", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-corrupt-"));
-  fs.writeFileSync(path.join(dir, "vaakya-data.json"), "{ not json");
+  fs.writeFileSync(path.join(dir, "saytype-data.json"), "{ not json");
   const store = createStore({ getPath: () => dir }, { isEncryptionAvailable: () => false });
   assert.deepStrictEqual(store.getHistory(), []);
   assert.ok(fs.readdirSync(dir).some((f) => f.includes(".corrupt-")), "backup exists");

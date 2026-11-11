@@ -6,7 +6,7 @@
 //  2. contextRules()/roleRule(): extra instructions for the AI polish step, chosen
 //     from the app you're dictating into and the role you picked in Settings.
 
-/** The languages Vaakya targets. `prime` nudges Whisper to answer in the right script. */
+/** The languages SayType targets. `prime` nudges Whisper to answer in the right script. */
 const LANGUAGES = {
   en: { name: "English", whisper: "english", prime: "" },
   hi: { name: "Hindi", whisper: "hindi", prime: "यह हिंदी में बोला गया है।" },

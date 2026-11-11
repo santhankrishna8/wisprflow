@@ -55,7 +55,7 @@ export default function Bubble() {
     raf.current = 0;
     const { moved } = await bridge.bubbleDragEnd();
     setDragging(false);
-    if (!window.vaakya && !moved) bridge.toggleDictation(); // browser preview
+    if (!window.saytype && !moved) bridge.toggleDictation(); // browser preview
   };
 
   const s = state.status;
@@ -66,8 +66,8 @@ export default function Bubble() {
   if (layout.collapsed) {
     return (
       <button
-        aria-label="Show the Vaakya pill"
-        title="Show the Vaakya pill"
+        aria-label="Show the SayType pill"
+        title="Show the SayType pill"
         onClick={() => bridge.setBubbleCollapsed(false)}
         className={cx("group flex h-screen w-screen items-center", right ? "justify-end" : "justify-start")}
       >

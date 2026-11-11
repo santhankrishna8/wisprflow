@@ -13,11 +13,11 @@ jobs:
         include:
           - os: macos-latest
             script: dist:mac
-            artifact: Vaakya-macOS
+            artifact: SayType-macOS
             glob: release/*.dmg
           - os: ubuntu-latest
             script: dist:linux
-            artifact: Vaakya-Linux
+            artifact: SayType-Linux
             glob: |
               release/*.AppImage
               release/*.deb

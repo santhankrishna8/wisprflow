@@ -62,7 +62,7 @@ export function LocalModelPicker({
   if (!available) {
     return (
       <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-[13px] text-fg-2">
-        The on-device engine isn't included in this build. Reinstall Vaakya from the latest installer to use it.
+        The on-device engine isn't included in this build. Reinstall SayType from the latest installer to use it.
       </div>
     );
   }

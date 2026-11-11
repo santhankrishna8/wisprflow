@@ -54,7 +54,7 @@ function migrateUserData() {
     const next = app.getPath("userData");
     const prev = path.join(app.getPath("appData"), "WisprFlow");
     if (path.resolve(prev) === path.resolve(next) || !fs.existsSync(prev)) return;
-    if (fs.existsSync(path.join(next, "vaakya-data.json")) || fs.existsSync(path.join(next, "wisprflow-data.json"))) return;
+    if (fs.existsSync(path.join(next, "saytype-data.json")) || fs.existsSync(path.join(next, "wisprflow-data.json"))) return;
     try {
       // Nothing of ours in the new folder yet: move the whole old folder into place.
       if (!fs.existsSync(next) || fs.readdirSync(next).length === 0) {
@@ -100,7 +100,7 @@ function createMainWindow() {
     minHeight: 600,
     show: false,
     backgroundColor: c.bg,
-    title: "Vaakya",
+    title: "SayType",
     titleBarStyle: "hidden",
     ...(isMac
       ? { trafficLightPosition: { x: 18, y: 18 } }
@@ -524,13 +524,13 @@ function trayIcon() {
 function updateTray() {
   if (!tray) return;
   const recording = state.status === "recording";
-  tray.setToolTip(recording ? "Vaakya — listening…" : "Vaakya");
+  tray.setToolTip(recording ? "SayType — listening…" : "SayType");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: recording ? "Stop dictation" : "Start dictation", accelerator: registeredHotkey || undefined, click: toggleDictation },
       { type: "separator" },
       ...(updateInfo ? [{ label: `Update available — v${updateInfo.version}`, click: () => shell.openExternal(updateInfo.url) }] : []),
-      { label: "Open Vaakya", click: showMain },
+      { label: "Open SayType", click: showMain },
       {
         label: "Show floating pill",
         type: "checkbox",

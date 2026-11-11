@@ -164,7 +164,7 @@ function General({ settings, update }: Props) {
           <Row title="Check for updates" description="Asks GitHub whether a newer release exists, about once a day. Nothing about you is sent.">
             <Switch checked={settings.checkUpdates} onChange={(v) => update({ checkUpdates: v })} label="Check for updates" />
           </Row>
-          <Row title="Launch at login" description="Start Vaakya quietly in the background.">
+          <Row title="Launch at login" description="Start SayType quietly in the background.">
             <Switch checked={settings.launchAtLogin} onChange={(v) => update({ launchAtLogin: v })} label="Launch at login" />
           </Row>
           {isMac && <PermissionsRow />}
@@ -437,7 +437,7 @@ function Cleanup({ settings, update, refresh }: Props) {
       </section>
 
       <section>
-        <SectionTitle title="Your role" description="Tells Vaakya which words to expect from you." />
+        <SectionTitle title="Your role" description="Tells SayType which words to expect from you." />
         <Card className="flex flex-col gap-5 p-5">
           <div className="flex flex-wrap gap-1.5">
             {ROLES.map((r) => {
@@ -626,7 +626,7 @@ function About({ settings }: { settings: Settings }) {
       <Card className="flex items-center gap-4 p-5">
         <Logo size={48} />
         <div>
-          <div className="text-[15px] font-semibold">Vaakya</div>
+          <div className="text-[15px] font-semibold">SayType</div>
           <div className="text-[12.5px] text-fg-3">
             Version {info?.version ?? "—"} · built{" "}
             {new Date(__BUILD_TIME__).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}

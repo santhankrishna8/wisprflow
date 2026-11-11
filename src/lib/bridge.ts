@@ -155,7 +155,7 @@ export interface BridgeApi {
 
 declare global {
   interface Window {
-    vaakya?: BridgeApi;
+    saytype?: BridgeApi;
   }
 }
 
@@ -352,5 +352,5 @@ function createMock(): BridgeApi {
   };
 }
 
-export const bridge: BridgeApi = window.vaakya ?? createMock();
+export const bridge: BridgeApi = window.saytype ?? createMock();
 export const isMac = bridge.platform === "darwin";

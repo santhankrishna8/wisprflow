@@ -39,7 +39,7 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
       <div className="drag flex min-w-0 flex-1 flex-col">
         <div className={cx("flex items-center gap-2.5 px-10", isMac ? "pt-12" : "pt-7")}>
           <Logo size={24} />
-          <span className="text-[14px] font-semibold tracking-tight">Vaakya</span>
+          <span className="text-[14px] font-semibold tracking-tight">SayType</span>
         </div>
 
         <div className="no-drag scroll flex min-h-0 flex-1 flex-col px-10">
@@ -69,7 +69,7 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
             )}
             {step === "try" ? (
               <Button variant="brand" size="lg" onClick={finish}>
-                Start using Vaakya <ArrowRight className="size-4" />
+                Start using SayType <ArrowRight className="size-4" />
               </Button>
             ) : (
               <Button
@@ -167,7 +167,7 @@ function Permissions() {
   return (
     <>
       <Heading eyebrow="Step 1 of 4" title="A couple of permissions">
-        Vaakya only listens while you hold the floor — never in the background.
+        SayType only listens while you hold the floor — never in the background.
       </Heading>
       <div className="flex flex-col gap-3">
         <PermissionCard
@@ -364,7 +364,7 @@ function Showcase({ step, hotkey }: { step: Step; hotkey: string }) {
             <Sparkles className="size-4 text-[#9fd6cf]" />
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </div>
-          <div className="mb-3 text-[11px] font-semibold tracking-wider text-white/65 uppercase">Vaakya types</div>
+          <div className="mb-3 text-[11px] font-semibold tracking-wider text-white/65 uppercase">SayType types</div>
           <div className="rounded-2xl bg-white/[0.06] p-4 text-[15px] leading-relaxed whitespace-pre-line text-white ring-1 ring-white/10 backdrop-blur">
             {l.clean}
             <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-[#9fd6cf]" />

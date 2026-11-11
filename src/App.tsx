@@ -50,7 +50,7 @@ export default function App() {
         <aside className="drag flex w-[232px] shrink-0 flex-col border-r border-line bg-sidebar">
           <div className={cx("flex items-center gap-2.5 px-5", isMac ? "pt-12 pb-5" : "pt-5 pb-5")}>
             <Logo size={26} />
-            <span className="text-[15px] font-semibold tracking-tight">Vaakya</span>
+            <span className="text-[15px] font-semibold tracking-tight">SayType</span>
           </div>
           <nav className="no-drag flex flex-col gap-0.5 px-3">
             {NAV.map(({ id, label, icon: Icon }) => {

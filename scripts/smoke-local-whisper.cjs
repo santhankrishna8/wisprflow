@@ -12,7 +12,7 @@ const { createLocalWhisper } = require("../electron/localWhisper.cjs");
 
 async function main() {
   const binDir = path.resolve(process.argv[2] || "release/win-unpacked/resources/whisper");
-  const modelsDir = path.join(os.tmpdir(), "vaakya-smoke-models");
+  const modelsDir = path.join(os.tmpdir(), "saytype-smoke-models");
   const lw = createLocalWhisper({ binDir, modelsDir });
   if (!lw.engineAvailable()) throw new Error(`No whisper-server in ${binDir}`);
 

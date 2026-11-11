@@ -40,7 +40,7 @@ function psHelper() {
   proc.stdin.write("$w = New-Object -ComObject WScript.Shell\n");
   // Lets us ask which app is in front, to format text for it (see activeWindow).
   proc.stdin.write(
-    "try { Add-Type -Namespace VK -Name Win -MemberDefinition '[DllImport(\"user32.dll\")] public static extern System.IntPtr GetForegroundWindow(); [DllImport(\"user32.dll\")] public static extern int GetWindowThreadProcessId(System.IntPtr h, out int pid); [DllImport(\"user32.dll\", CharSet=CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr h, System.Text.StringBuilder s, int n);' } catch {}\n"
+    "try { Add-Type -Namespace ST -Name Win -MemberDefinition '[DllImport(\"user32.dll\")] public static extern System.IntPtr GetForegroundWindow(); [DllImport(\"user32.dll\")] public static extern int GetWindowThreadProcessId(System.IntPtr h, out int pid); [DllImport(\"user32.dll\", CharSet=CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr h, System.Text.StringBuilder s, int n);' } catch {}\n"
   );
   ps = h;
   return h;
@@ -96,7 +96,7 @@ async function activeWindow() {
   try {
     if (process.platform === "win32") {
       const b64 = await ask(
-        "try { $h=[VK.Win]::GetForegroundWindow(); $p=0; [void][VK.Win]::GetWindowThreadProcessId($h,[ref]$p); $s=New-Object System.Text.StringBuilder 512; [void][VK.Win]::GetWindowText($h,$s,512); 'wf-app:' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Get-Process -Id $p).ProcessName + [char]9 + $s.ToString())) } catch { 'wf-app:' }",
+        "try { $h=[ST.Win]::GetForegroundWindow(); $p=0; [void][ST.Win]::GetWindowThreadProcessId($h,[ref]$p); $s=New-Object System.Text.StringBuilder 512; [void][ST.Win]::GetWindowText($h,$s,512); 'wf-app:' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Get-Process -Id $p).ProcessName + [char]9 + $s.ToString())) } catch { 'wf-app:' }",
         "wf-app:",
         5000
       );

@@ -39,7 +39,7 @@ export default function History({
     const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `vaakya-history-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `saytype-history-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };

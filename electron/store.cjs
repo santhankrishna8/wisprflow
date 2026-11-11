@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS = {
 
 function createStore(app, safeStorage) {
   const dir = app.getPath("userData");
-  const file = path.join(dir, "vaakya-data.json");
+  const file = path.join(dir, "saytype-data.json");
   let data = { settings: { ...DEFAULT_SETTINGS }, history: [], dictionary: [] };
 
   try {

@@ -1,6 +1,6 @@
 {
-  "name": "vaakya",
-  "productName": "Vaakya",
+  "name": "saytype",
+  "productName": "SayType",
   "version": "0.2.0",
   "description": "Voice typing for every app in English, Hindi, Telugu, Tamil and Kannada. Press a hotkey, speak, and formatted text appears at your cursor.",
   "main": "electron/main.cjs",
@@ -22,7 +22,7 @@
   },
   "build": {
     "appId": "com.wisprflow.app",
-    "productName": "Vaakya",
+    "productName": "SayType",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -39,7 +39,7 @@
     "mac": {
       "category": "public.app-category.productivity",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Vaakya uses the microphone to transcribe your dictation."
+        "NSMicrophoneUsageDescription": "SayType uses the microphone to transcribe your dictation."
       },
       "extraResources": [
         {
@@ -95,9 +95,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Vaakya",
+      "shortcutName": "SayType",
       "runAfterFinish": true,
-      "artifactName": "Vaakya-Setup.${ext}"
+      "artifactName": "SayType-Setup.${ext}"
     }
   },
   "devDependencies": {

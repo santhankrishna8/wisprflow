@@ -38,7 +38,7 @@ export default function Dictionary() {
       <header className="mb-6">
         <h1 className="text-[26px] font-semibold tracking-[-0.02em]">Dictionary</h1>
         <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-fg-3">
-          Teach Vaakya names, jargon and acronyms so they're spelled right every time. Add a replacement to fix words it
+          Teach SayType names, jargon and acronyms so they're spelled right every time. Add a replacement to fix words it
           consistently mishears.
         </p>
       </header>

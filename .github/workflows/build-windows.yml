@@ -45,12 +45,12 @@ jobs:
       - name: Report installer size
         shell: pwsh
         run: |
-          $mb = [math]::Round((Get-Item release/Vaakya-Setup.exe).Length / 1MB, 1)
+          $mb = [math]::Round((Get-Item release/SayType-Setup.exe).Length / 1MB, 1)
           "Installer size: $mb MB"
-          "### Vaakya-Setup.exe: $mb MB" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "### SayType-Setup.exe: $mb MB" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
       - uses: actions/upload-artifact@v4
         with:
-          name: Vaakya-Windows-installer
+          name: SayType-Windows-installer
           path: release/*.exe
       - name: Publish GitHub release
         if: env.RAW_VERSION != ''
@@ -58,12 +58,12 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          name: Vaakya ${{ env.VERSION }}
-          files: release/Vaakya-Setup.exe
+          name: SayType ${{ env.VERSION }}
+          files: release/SayType-Setup.exe
           generate_release_notes: true
           make_latest: true
           body: |
             ## Install
-            1. Download **Vaakya-Setup.exe** below.
+            1. Download **SayType-Setup.exe** below.
             2. If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed yet).
             3. In setup, choose **On this PC** and download the **Base** model to dictate offline for free.

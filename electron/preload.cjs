@@ -8,7 +8,7 @@ function on(channel) {
   };
 }
 
-contextBridge.exposeInMainWorld("vaakya", {
+contextBridge.exposeInMainWorld("saytype", {
   platform: process.platform,
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSettings: (patch) => ipcRenderer.invoke("settings:set", patch),

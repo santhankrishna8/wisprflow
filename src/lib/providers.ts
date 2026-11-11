@@ -52,7 +52,7 @@ export const TONES: Array<{ value: Tone; label: string; sample: string }> = [
   { value: "verbatim", label: "Verbatim", sample: "um so let's meet at 4, actually 5, and uh I'll bring the slides" },
 ];
 
-/** The languages Vaakya is built for. Native names help people spot their own. */
+/** The languages SayType is built for. Native names help people spot their own. */
 export const LANGUAGES: Array<[code: string, name: string, native: string]> = [
   ["auto", "Detect automatically", "Any of the five below"],
   ["en", "English", "English"],
