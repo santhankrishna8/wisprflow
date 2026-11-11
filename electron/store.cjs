@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS = {
   historyRetention: "30d", // forever | 3h | 24h | 7d | 30d
   checkUpdates: true, // ask GitHub for new releases (no data sent)
   showBubble: true, // always-on-top floating dictation pill
-  bubbleCollapsed: false, // tucked into the screen edge as a slim tab
+  bubbleCollapsed: true, // resting state: a slim tab at the screen edge; clicking it opens the pill
   bubblePosition: null, // { x, y } in screen coordinates
   keys: {}, // provider -> encrypted key (base64)
 };

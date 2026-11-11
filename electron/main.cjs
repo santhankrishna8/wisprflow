@@ -532,11 +532,11 @@ function updateTray() {
       ...(updateInfo ? [{ label: `Update available — v${updateInfo.version}`, click: () => shell.openExternal(updateInfo.url) }] : []),
       { label: "Open SayType", click: showMain },
       {
-        label: "Show floating pill",
+        label: "Show edge tab",
         type: "checkbox",
         checked: Boolean(store.raw().showBubble),
         click: (item) => {
-          // Turning it on from here always brings back the full pill, not the tucked-away tab.
+          // Turning it on from here opens the pill so it's easy to spot; it tucks away again by itself.
           store.setSettings({ showBubble: item.checked, ...(item.checked ? { bubbleCollapsed: false } : {}) });
           setBubbleVisible(item.checked && store.raw().onboarded);
           broadcast("settings:changed", store.getSettings());
@@ -764,6 +764,7 @@ app.whenReady().then(() => {
     modelsDir: path.join(app.getPath("userData"), "models"),
     fetchImpl: (url, opts) => net.fetch(url, opts),
   });
+  store.setSettings({ bubbleCollapsed: true }); // the pill always starts tucked into the edge
   nativeTheme.themeSource = store.raw().theme || "system";
   if (store.raw().launchAtLogin) {
     try {

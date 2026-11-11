@@ -222,7 +222,7 @@ function createMock(): BridgeApi {
     historyRetention: "30d",
     checkUpdates: true,
     showBubble: true,
-    bubbleCollapsed: false,
+    bubbleCollapsed: true,
     hasKey: { openai: true },
   };
   let state: DictationState = { status: "idle", message: "" };
@@ -332,7 +332,7 @@ function createMock(): BridgeApi {
       return { moved: false };
     },
     setBubbleCollapsed: async (collapsed) => emit("bubbleLayout", { side: "right", collapsed }),
-    getBubbleLayout: async () => ({ side: "right", collapsed: false }),
+    getBubbleLayout: async () => ({ side: "right", collapsed: true }),
     onBubbleLayout: on("bubbleLayout"),
     copy: async (t) => {
       try {

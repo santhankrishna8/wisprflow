@@ -109,18 +109,11 @@ function General({ settings, update }: Props) {
             <Switch checked={settings.restoreClipboard} onChange={(v) => update({ restoreClipboard: v })} label="Restore clipboard" />
           </Row>
           <Row
-            title="Floating pill"
-            description="A slim pill at the edge of your screen. Click to dictate, drag to move. Its arrow tucks it into the edge; click the tab that's left to bring it back."
+            title="Edge tab"
+            description="A slim tab at the edge of your screen. Click it to open the dictation pill; click the pill to dictate, drag it to move. The pill tucks back into the tab when you're done."
           >
-            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Floating pill" />
+            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Edge tab" />
           </Row>
-          {settings.showBubble && settings.bubbleCollapsed && (
-            <Row title="The pill is tucked into the screen edge" description="Look for the slim tab on the side of your screen, or bring the pill back from here.">
-              <Button size="sm" onClick={() => bridge.setBubbleCollapsed(false)}>
-                Bring it back
-              </Button>
-            </Row>
-          )}
           <Row title="Sound effects" description="Soft chimes when recording starts and stops.">
             <Switch checked={settings.soundEffects} onChange={(v) => update({ soundEffects: v })} label="Sound effects" />
           </Row>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { cx } from "../components/ui";
 import { bridge } from "../lib/bridge";
 import type { BubbleLayout, DictationState } from "../lib/bridge";
@@ -8,10 +8,15 @@ import type { BubbleLayout, DictationState } from "../lib/bridge";
 // Line widths (px) that stack into the oval voice mark.
 const LINES = [8, 12, 15, 17, 18, 18, 18, 17, 15, 12, 8];
 
+// How long the open pill waits, untouched, before tucking back into the edge.
+const TUCK_AFTER_MS = 4000;
+const TUCK_AFTER_DONE_MS = 1200;
+
 /**
- * Always-on-top pill at the screen edge. Click to start or stop dictation, drag
- * to move it (it snaps to the nearest side). Its close button never removes it:
- * the pill tucks into the edge as a slim tab, and clicking the tab brings it back.
+ * Always-on-top dictation control at the screen edge. It rests as a slim tab;
+ * clicking the tab opens the pill. Click the pill to start or stop dictation,
+ * drag it to move it (it snaps to the nearest side). Once it is idle and the
+ * pointer has left, it tucks back into the tab by itself.
  */
 export default function Bubble() {
   const params = new URLSearchParams(location.search);
@@ -58,6 +63,22 @@ export default function Bubble() {
     if (!window.saytype && !moved) bridge.toggleDictation(); // browser preview
   };
 
+  // Tuck back into the edge when nothing is happening.
+  const used = useRef(false); // a dictation ran while the pill was open
+  useEffect(() => {
+    if (demo || layout.collapsed) {
+      used.current = false;
+      return;
+    }
+    if (state.status !== "idle") {
+      used.current = true;
+      return;
+    }
+    if (hover || dragging) return;
+    const t = setTimeout(() => bridge.setBubbleCollapsed(true), used.current ? TUCK_AFTER_DONE_MS : TUCK_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [demo, layout.collapsed, state.status, hover, dragging]);
+
   const s = state.status;
   const recording = s === "recording";
   const processing = s === "processing";
@@ -66,8 +87,8 @@ export default function Bubble() {
   if (layout.collapsed) {
     return (
       <button
-        aria-label="Show the SayType pill"
-        title="Show the SayType pill"
+        aria-label="Open the SayType pill"
+        title="Open the SayType pill"
         onClick={() => bridge.setBubbleCollapsed(false)}
         className={cx("group flex h-screen w-screen items-center", right ? "justify-end" : "justify-start")}
       >
@@ -83,27 +104,12 @@ export default function Bubble() {
     );
   }
 
-  const Tuck = right ? ChevronRight : ChevronLeft;
   return (
     <div
       className="relative flex h-screen w-screen flex-col items-center justify-center"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {/* Tuck the pill into the edge. Revealed on hover while idle. */}
-      <button
-        aria-label="Tuck into the screen edge"
-        title="Tuck into the edge (click the tab to bring it back)"
-        onClick={() => bridge.setBubbleCollapsed(true)}
-        tabIndex={hover ? 0 : -1}
-        className={cx(
-          "absolute top-0.5 flex size-5 items-center justify-center rounded-full bg-[#0d2b2f] text-[#f7f9f8]/75 shadow ring-1 ring-[#9fd6cf]/30 transition-opacity hover:text-white",
-          hover && s === "idle" && !dragging ? "opacity-100" : "pointer-events-none opacity-0"
-        )}
-      >
-        <Tuck className="size-3" strokeWidth={3} />
-      </button>
-
       <button
         aria-label={recording ? "Stop dictation" : "Start dictation"}
         onPointerDown={onPointerDown}
