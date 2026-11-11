@@ -29,6 +29,11 @@
       "package.json"
     ],
     "compression": "maximum",
+    "npmRebuild": false,
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ],
     "electronLanguages": [
       "en-US"
     ],
@@ -119,5 +124,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.7",
     "wait-on": "^9.5.1"
+  },
+  "dependencies": {
+    "koffi": "^3.3.7"
   }
 }

@@ -42,6 +42,14 @@ jobs:
       - run: npm run dist:win
       - name: Smoke-test on-device transcription in the packaged app
         run: node scripts/smoke-local-whisper.cjs release/win-unpacked/resources/whisper
+      - name: Check the native paste module is packaged
+        shell: pwsh
+        run: |
+          $hit = Get-ChildItem -Recurse release/win-unpacked/resources/app.asar.unpacked -Filter *.node -ErrorAction SilentlyContinue | Where-Object FullName -match 'koffi'
+          if (-not $hit) { throw "koffi's native module is missing from the packaged app" }
+          $hit | ForEach-Object { $_.FullName }
+      - name: Smoke-test pasting into Notepad
+        run: node scripts/smoke-paste.cjs
       - name: Report installer size
         shell: pwsh
         run: |

@@ -1,5 +1,7 @@
 // Put text on the clipboard and simulate the paste shortcut in the focused app.
 const { execFile, spawn } = require("node:child_process");
+const win32 = require("./win32.cjs");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
@@ -89,7 +91,7 @@ function ask(command, prefix, timeoutMs) {
 
 /** Pre-start the Windows paste helper so the first paste isn't slow. */
 function warmPaste() {
-  if (process.platform !== "win32") return;
+  if (process.platform !== "win32" || win32.available()) return;
   try {
     psHelper();
   } catch {
@@ -116,6 +118,7 @@ function capture(cmd, args, timeout = 1500) {
  */
 async function activeWindow() {
   try {
+    if (process.platform === "win32" && win32.available()) return win32.activeWindow();
     if (process.platform === "win32") {
       const b64 = await ask(
         "try { $h=[ST.Win]::GetForegroundWindow(); $p=0; [void][ST.Win]::GetWindowThreadProcessId($h,[ref]$p); $s=New-Object System.Text.StringBuilder 512; [void][ST.Win]::GetWindowText($h,$s,512); 'wf-app:' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Get-Process -Id $p).ProcessName + [char]9 + $s.ToString() + [char]9 + $h.ToInt64() + [char]9 + $p)) } catch { 'wf-app:' }",
@@ -144,6 +147,15 @@ async function activeWindow() {
 async function simulatePaste(target) {
   if (process.platform === "darwin") {
     await run("osascript", ["-e", 'tell application "System Events" to keystroke "v" using command down']);
+    return;
+  }
+  if (process.platform === "win32" && win32.available()) {
+    // Native path: bring back the window you were typing in, then press Ctrl+V directly.
+    if (target?.handle) {
+      const wasInFront = win32.focus(target);
+      if (wasInFront) await sleep(60); // let the window settle before it receives the keys
+    }
+    await win32.pressPaste();
     return;
   }
   if (process.platform === "win32") {
@@ -200,14 +212,22 @@ function snapshot(clipboard) {
  */
 async function pasteText(clipboard, text, { restore = true, target = null } = {}) {
   const previous = restore ? snapshot(clipboard) : null;
-  clipboard.writeText(text);
-  await new Promise((r) => setTimeout(r, 60));
+  // Another app can hold the clipboard open for a moment, and then the write is silently
+  // lost: check it landed before pressing Ctrl+V, retrying briefly.
+  let ok = false;
+  for (let i = 0; i < 8 && !ok; i++) {
+    if (i) await sleep(50);
+    clipboard.writeText(text);
+    ok = clipboard.readText() === text;
+  }
+  if (!ok) throw new Error("Another app is holding the clipboard. Your text could not be placed on it.");
+  await sleep(40);
   await simulatePaste(target && !target.own ? target : null);
   if (restore && previous) {
     setTimeout(() => {
       // Only restore if nothing else changed the clipboard meanwhile.
       if (clipboard.readText() === text) clipboard.write(previous);
-    }, 900);
+    }, 1500); // some apps read the clipboard a moment after Ctrl+V
   }
 }
 
