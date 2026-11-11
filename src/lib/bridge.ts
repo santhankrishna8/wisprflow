@@ -4,6 +4,9 @@
 export type SttProvider = "local" | "openai" | "groq" | "custom";
 export type LlmProvider = "openai" | "anthropic" | "groq" | "custom";
 export type Tone = "natural" | "professional" | "casual" | "verbatim";
+/** What the text is being written for. "auto" picks from the app you're dictating into. */
+export type FormatMode = "auto" | "message" | "email" | "notes" | "code" | "prompt" | "other";
+export type Role = "general" | "developer" | "student" | "writer" | "business" | "support" | "healthcare";
 export type Theme = "system" | "light" | "dark";
 export type Status = "idle" | "recording" | "processing" | "done" | "error";
 
@@ -20,6 +23,11 @@ export interface Settings {
   llmModel: string;
   llmBaseUrl: string;
   tone: Tone;
+  smartFormat: boolean;
+  formatMode: FormatMode;
+  useAppContext: boolean;
+  role: Role;
+  aboutYou: string;
   autoPaste: boolean;
   restoreClipboard: boolean;
   soundEffects: boolean;
@@ -29,6 +37,7 @@ export interface Settings {
   historyRetention: "forever" | "3h" | "24h" | "7d" | "30d";
   checkUpdates: boolean;
   showBubble: boolean;
+  bubbleCollapsed: boolean;
   hasKey: Record<string, boolean>;
   keysEncrypted?: boolean;
 }
@@ -42,6 +51,13 @@ export interface HistoryEntry {
   processingMs: number;
   words: number;
   cleaned: boolean;
+  /** The kind of app it was formatted for. */
+  context?: string;
+}
+
+export interface BubbleLayout {
+  side: "left" | "right";
+  collapsed: boolean;
 }
 
 export interface DictionaryEntry {
@@ -61,6 +77,10 @@ export interface LocalModel {
   size: string;
   blurb: string;
   recommended: boolean;
+  /** Only reliable for English. */
+  english?: boolean;
+  /** Suggested for Hindi, Telugu, Tamil and Kannada. */
+  indic?: boolean;
   downloaded: boolean;
   downloading: boolean;
 }
@@ -80,7 +100,7 @@ export interface Permissions {
 
 type Unsub = () => void;
 
-export interface WisprApi {
+export interface BridgeApi {
   platform: string;
   getSettings(): Promise<Settings>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
@@ -119,7 +139,9 @@ export interface WisprApi {
   bubbleDragStart(): void;
   bubbleDragMove(): void;
   bubbleDragEnd(): Promise<{ moved: boolean }>;
-  hideBubble(): Promise<void>;
+  setBubbleCollapsed(collapsed: boolean): Promise<void>;
+  getBubbleLayout(): Promise<BubbleLayout>;
+  onBubbleLayout(cb: (l: BubbleLayout) => void): Unsub;
   copy(text: string): Promise<void>;
   getPermissions(): Promise<Permissions>;
   requestMic(): Promise<boolean>;
@@ -133,13 +155,13 @@ export interface WisprApi {
 
 declare global {
   interface Window {
-    wispr?: WisprApi;
+    vaakya?: BridgeApi;
   }
 }
 
 // ---------------- Browser mock ----------------
 
-function createMock(): WisprApi {
+function createMock(): BridgeApi {
   const listeners: Record<string, Set<(p: any) => void>> = {};
   const emit = (ch: string, p?: any) => listeners[ch]?.forEach((f) => f(p));
   const on = (ch: string) => (cb: (p: any) => void) => {
@@ -169,7 +191,7 @@ function createMock(): WisprApi {
         cleaned: true,
       }));
   let dictionary: DictionaryEntry[] = [
-    { id: "a", word: "WisprFlow" },
+    { id: "a", word: "Adithya" },
     { id: "b", word: "kubernetes", to: "Kubernetes" },
     { id: "c", word: "Priya" },
   ];
@@ -186,6 +208,11 @@ function createMock(): WisprApi {
     llmModel: "gpt-4o-mini",
     llmBaseUrl: "",
     tone: "natural",
+    smartFormat: true,
+    formatMode: "auto",
+    useAppContext: true,
+    role: "general",
+    aboutYou: "",
     autoPaste: true,
     restoreClipboard: true,
     soundEffects: true,
@@ -195,14 +222,16 @@ function createMock(): WisprApi {
     historyRetention: "30d",
     checkUpdates: true,
     showBubble: true,
+    bubbleCollapsed: false,
     hasKey: { openai: true },
   };
   let state: DictationState = { status: "idle", message: "" };
   const localModels = [
-    { id: "tiny", name: "Tiny", size: "75 MB", blurb: "Fastest. Fine for short, clear notes.", recommended: false },
-    { id: "base", name: "Base", size: "142 MB", blurb: "Quick and accurate enough for most dictation.", recommended: true },
-    { id: "small", name: "Small", size: "466 MB", blurb: "Noticeably more accurate. Great on modern CPUs.", recommended: false },
-    { id: "turbo-q5", name: "Large v3 Turbo", size: "574 MB", blurb: "Near-best accuracy. Slower without a strong CPU.", recommended: false },
+    { id: "tiny", name: "Tiny", size: "75 MB", blurb: "Fastest. Short, clear English notes only.", recommended: false, english: true },
+    { id: "base", name: "Base", size: "142 MB", blurb: "Quick and accurate enough for everyday English.", recommended: true, english: true },
+    { id: "small", name: "Small", size: "466 MB", blurb: "More accurate English, usable Hindi. Great on modern CPUs.", recommended: false },
+    { id: "turbo-q5", name: "Large v3 Turbo", size: "574 MB", blurb: "Best balance for Hindi, Telugu, Tamil and Kannada.", recommended: false, indic: true },
+    { id: "large-q5", name: "Large v3", size: "1.08 GB", blurb: "Most accurate for Indian languages, but slow without a fast CPU.", recommended: false },
   ];
   const downloaded = new Set<string>(params.has("nomodels") ? [] : ["base"]);
   const setState = (s: Status, message = "") => {
@@ -302,7 +331,9 @@ function createMock(): WisprApi {
       await (async () => {})();
       return { moved: false };
     },
-    hideBubble: async () => {},
+    setBubbleCollapsed: async (collapsed) => emit("bubbleLayout", { side: "right", collapsed }),
+    getBubbleLayout: async () => ({ side: "right", collapsed: false }),
+    onBubbleLayout: on("bubbleLayout"),
     copy: async (t) => {
       try {
         await navigator.clipboard.writeText(t);
@@ -314,12 +345,12 @@ function createMock(): WisprApi {
     requestMic: async () => true,
     openAccessibility: async () => {},
     openExternal: async (url) => void window.open(url, "_blank"),
-    appInfo: async () => ({ version: "0.1.1", platform: "browser" }),
+    appInfo: async () => ({ version: "0.2.0", platform: "browser" }),
     onNavigate: on("navigate"),
     getUpdate: async () => null,
     onUpdate: on("update"),
   };
 }
 
-export const wispr: WisprApi = window.wispr ?? createMock();
-export const isMac = wispr.platform === "darwin";
+export const bridge: BridgeApi = window.vaakya ?? createMock();
+export const isMac = bridge.platform === "darwin";

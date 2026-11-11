@@ -20,7 +20,9 @@ const crypto = require("node:crypto");
 const { createStore, RETENTION_MS } = require("./store.cjs");
 const ai = require("./ai.cjs");
 const { isNewer } = require("./version.cjs");
-const { pasteText, warmPaste, stopPasteHelper } = require("./paste.cjs");
+const fs = require("node:fs");
+const { pasteText, warmPaste, stopPasteHelper, activeWindow } = require("./paste.cjs");
+const fmt = require("./format.cjs");
 const { createLocalWhisper } = require("./localWhisper.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
@@ -39,8 +41,42 @@ let quitting = false;
 // idle | recording | processing | done | error
 let state = { status: "idle", message: "" };
 let activeAbort = null;
+let activeApp = Promise.resolve(null); // the window the user was typing in when dictation started
 let updateInfo = null; // { version, url } when a newer release exists
 let registeredHotkey = null;
+
+/**
+ * The app used to be called WisprFlow. Carry settings, history, saved keys and
+ * downloaded models over to the new data folder the first time this version runs.
+ */
+function migrateUserData() {
+  try {
+    const next = app.getPath("userData");
+    const prev = path.join(app.getPath("appData"), "WisprFlow");
+    if (path.resolve(prev) === path.resolve(next) || !fs.existsSync(prev)) return;
+    if (fs.existsSync(path.join(next, "vaakya-data.json")) || fs.existsSync(path.join(next, "wisprflow-data.json"))) return;
+    try {
+      // Nothing of ours in the new folder yet: move the whole old folder into place.
+      if (!fs.existsSync(next) || fs.readdirSync(next).length === 0) {
+        fs.rmSync(next, { recursive: true, force: true });
+        fs.renameSync(prev, next);
+        return;
+      }
+    } catch {
+      /* fall through to copying */
+    }
+    fs.mkdirSync(next, { recursive: true });
+    for (const name of ["wisprflow-data.json", "Local State"]) {
+      const from = path.join(prev, name);
+      if (fs.existsSync(from)) fs.copyFileSync(from, path.join(next, name));
+    }
+    const models = path.join(prev, "models");
+    if (fs.existsSync(models) && !fs.existsSync(path.join(next, "models"))) fs.renameSync(models, path.join(next, "models"));
+  } catch {
+    /* start fresh rather than fail to launch */
+  }
+}
+migrateUserData();
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -52,7 +88,7 @@ function load(win, page) {
 function themeColors() {
   const s = store?.raw();
   const dark = s?.theme === "dark" || (s?.theme !== "light" && nativeTheme.shouldUseDarkColors);
-  return dark ? { bg: "#0b0b0f", fg: "#e7e7ea" } : { bg: "#fbfbfa", fg: "#1c1c22" };
+  return dark ? { bg: "#071c1f", fg: "#e9f1f0" } : { bg: "#f7f9f8", fg: "#06525c" };
 }
 
 function createMainWindow() {
@@ -64,7 +100,7 @@ function createMainWindow() {
     minHeight: 600,
     show: false,
     backgroundColor: c.bg,
-    title: "WisprFlow",
+    title: "Vaakya",
     titleBarStyle: "hidden",
     ...(isMac
       ? { trafficLightPosition: { x: 18, y: 18 } }
@@ -122,19 +158,22 @@ function createOverlayWindow() {
   load(overlayWindow, "overlay.html");
 }
 
-// ---------- Floating button ----------
-const BUBBLE = { width: 76, height: 76 };
+// ---------- Floating pill ----------
+// A slim vertical pill at the screen edge. Its close button doesn't remove it:
+// it tucks the pill into the edge as a small tab that brings it back on click.
+const BUBBLE = { width: 52, height: 150 };
+const BUBBLE_TAB = { width: 14, height: 84 };
 const EDGE_MARGIN = 0;
 
 function defaultBubblePosition() {
   const { workArea } = screen.getPrimaryDisplay();
   return {
     x: workArea.x + workArea.width - BUBBLE.width - EDGE_MARGIN,
-    y: Math.round(workArea.y + workArea.height * 0.55),
+    y: Math.round(workArea.y + workArea.height * 0.5 - BUBBLE.height / 2),
   };
 }
 
-/** Keep the button fully on a screen; optionally snap it to the nearest side edge. */
+/** Keep the pill fully on a screen; optionally snap it to the nearest side edge. */
 function clampBubble({ x, y }, snap) {
   const centre = { x: x + BUBBLE.width / 2, y: y + BUBBLE.height / 2 };
   const { workArea: wa } = screen.getDisplayNearestPoint(centre);
@@ -146,11 +185,38 @@ function clampBubble({ x, y }, snap) {
   return { x: Math.round(nx), y: Math.round(ny) };
 }
 
+/** Where the pill (or its tucked-away tab) belongs right now. */
+function bubbleLayout() {
+  const s = store.raw();
+  const saved = s.bubblePosition && Number.isFinite(s.bubblePosition.x) && Number.isFinite(s.bubblePosition.y) ? s.bubblePosition : defaultBubblePosition();
+  const pos = clampBubble(saved, false);
+  const { workArea: wa } = screen.getDisplayNearestPoint({ x: pos.x + BUBBLE.width / 2, y: pos.y + BUBBLE.height / 2 });
+  const side = pos.x + BUBBLE.width / 2 < wa.x + wa.width / 2 ? "left" : "right";
+  const collapsed = Boolean(s.bubbleCollapsed);
+  const bounds = collapsed
+    ? {
+        x: side === "left" ? wa.x : wa.x + wa.width - BUBBLE_TAB.width,
+        y: Math.round(pos.y + (BUBBLE.height - BUBBLE_TAB.height) / 2),
+        ...BUBBLE_TAB,
+      }
+    : { ...pos, ...BUBBLE };
+  return { bounds, side, collapsed };
+}
+
+function applyBubbleLayout() {
+  if (!bubbleWindow || bubbleWindow.isDestroyed()) return;
+  const layout = bubbleLayout();
+  // Some platforms refuse to resize a non-resizable window, even from code.
+  bubbleWindow.setResizable(true);
+  bubbleWindow.setBounds(layout.bounds);
+  bubbleWindow.setResizable(false);
+  bubbleWindow.webContents.send("bubble:layout", { side: layout.side, collapsed: layout.collapsed });
+}
+
 function createBubbleWindow() {
-  const pos = clampBubble(store.raw().bubblePosition || defaultBubblePosition(), false);
+  const { bounds } = bubbleLayout();
   bubbleWindow = new BrowserWindow({
-    ...BUBBLE,
-    ...pos,
+    ...bounds,
     show: false,
     frame: false,
     transparent: true,
@@ -182,11 +248,22 @@ function createBubbleWindow() {
 
 function setBubbleVisible(visible) {
   if (visible) {
-    if (!bubbleWindow) createBubbleWindow();
-    else bubbleWindow.showInactive();
+    if (!bubbleWindow || bubbleWindow.isDestroyed()) {
+      createBubbleWindow();
+      return;
+    }
+    applyBubbleLayout(); // also pulls it back if its saved spot is no longer on a screen
+    bubbleWindow.showInactive();
+    bubbleWindow.setAlwaysOnTop(true, "screen-saver");
   } else {
     bubbleWindow?.hide();
   }
+}
+
+function setBubbleCollapsed(collapsed) {
+  store.setSettings({ bubbleCollapsed: Boolean(collapsed) });
+  applyBubbleLayout();
+  broadcast("settings:changed", store.getSettings());
 }
 
 function positionOverlay() {
@@ -229,6 +306,8 @@ function startDictation() {
   registerEscape(true);
   warmPaste();
   const s = store.raw();
+  // Note which app is in front now, while the user is still in it.
+  activeApp = s.useAppContext === false ? Promise.resolve(null) : activeWindow();
   overlayWindow.webContents.send("dictation:start", {
     micDeviceId: s.micDeviceId,
     sounds: s.soundEffects,
@@ -279,39 +358,55 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       overlayWindow?.hide();
       return { ok: false, error: "Too short — hold on a little longer." };
     }
-    const vocab = dictionary.map((d) => d.to || d.word).filter(Boolean);
-    let raw =
-      settings.sttProvider === "local"
-        ? await local.transcribe({
-            wav: Buffer.from(audio),
-            modelId: settings.localModel,
-            language: settings.language,
-            prompt: vocab.length ? `Vocabulary: ${vocab.slice(0, 60).join(", ")}.` : "",
-            signal: abort.signal,
-          })
-        : await ai.transcribe({
-            audio: Buffer.from(audio),
-            mimeType,
-            settings,
-            apiKey: store.getKey(settings.sttProvider),
-            dictionary,
-            signal: abort.signal,
-          });
+    const language = fmt.normalizeLanguage(settings.language);
+    const win = await Promise.race([activeApp, new Promise((r) => setTimeout(() => r(null), 1500))]);
+    const context = { ...fmt.resolveContext(settings, win), role: settings.role, about: settings.aboutYou, language };
+    const terms = [
+      ...dictionary.map((d) => d.to || d.word).filter(Boolean),
+      ...(context.kind === "code" || settings.role === "developer" ? fmt.DEV_VOCAB : []),
+    ];
+    const promptFor = (l) => fmt.sttPrompt({ language: l, terms });
+    let raw;
+    if (settings.sttProvider === "local") {
+      const r = await local.transcribe({
+        wav: Buffer.from(audio),
+        modelId: settings.localModel,
+        language,
+        allowed: fmt.LANGUAGE_CODES,
+        promptFor,
+        signal: abort.signal,
+      });
+      raw = r.text;
+      if (r.language !== "auto") context.language = r.language;
+    } else {
+      raw = await ai.transcribe({
+        audio: Buffer.from(audio),
+        mimeType,
+        settings: { ...settings, language },
+        apiKey: store.getKey(settings.sttProvider),
+        prompt: promptFor(language),
+        signal: abort.signal,
+      });
+    }
     raw = ai.applyDictionary(raw, dictionary);
     if (!raw) throw new Error("No speech detected.");
 
-    let text = raw;
+    const verbatim = settings.tone === "verbatim";
+    // Offline formatting first, so it applies even with no AI key.
+    let text = !verbatim && settings.smartFormat !== false ? ai.applyDictionary(fmt.formatOffline(raw, context), dictionary) : raw;
+    const formatted = text;
     let cleanupError = null;
-    // Skip cleanup quietly when its provider has no key yet (e.g. fully local setups).
+    // Skip the AI polish quietly when its provider has no key yet (e.g. fully local setups).
     const cleanupReady = settings.llmProvider === "custom" ? Boolean(settings.llmBaseUrl) : Boolean(store.getKey(settings.llmProvider));
-    if (settings.cleanupEnabled && settings.tone !== "verbatim" && cleanupReady) {
+    if (settings.cleanupEnabled && !verbatim && cleanupReady) {
       try {
         text = ai.applyDictionary(
           await ai.cleanup({
-            text: raw,
+            text: formatted,
             settings,
             apiKey: store.getKey(settings.llmProvider),
             dictionary,
+            context,
             signal: abort.signal,
           }),
           dictionary
@@ -319,7 +414,7 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       } catch (err) {
         if (abort.signal.aborted) throw err;
         cleanupError = err.message;
-        text = raw;
+        text = formatted;
       }
     }
     if (abort.signal.aborted) return { ok: false, cancelled: true };
@@ -333,11 +428,12 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       processingMs: Date.now() - t0,
       words: text.split(/\s+/).filter(Boolean).length,
       cleaned: text !== raw,
+      context: context.kind,
     });
     broadcast("history:added", entry);
     pruneHistory();
 
-    setState("done", cleanupError ? "Pasted raw text — cleanup failed" : settings.autoPaste ? "Pasted" : "Copied");
+    setState("done", cleanupError ? "Pasted without AI polish" : settings.autoPaste ? "Pasted" : "Copied");
     if (settings.autoPaste) {
       try {
         await pasteText(clipboard, text, { restore: settings.restoreClipboard });
@@ -428,22 +524,37 @@ function trayIcon() {
 function updateTray() {
   if (!tray) return;
   const recording = state.status === "recording";
-  tray.setToolTip(recording ? "WisprFlow — listening…" : "WisprFlow");
+  tray.setToolTip(recording ? "Vaakya — listening…" : "Vaakya");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: recording ? "Stop dictation" : "Start dictation", accelerator: registeredHotkey || undefined, click: toggleDictation },
       { type: "separator" },
       ...(updateInfo ? [{ label: `Update available — v${updateInfo.version}`, click: () => shell.openExternal(updateInfo.url) }] : []),
-      { label: "Open WisprFlow", click: showMain },
+      { label: "Open Vaakya", click: showMain },
       {
-        label: "Show floating button",
+        label: "Show floating pill",
         type: "checkbox",
         checked: Boolean(store.raw().showBubble),
         click: (item) => {
-          store.setSettings({ showBubble: item.checked });
-          setBubbleVisible(item.checked);
+          // Turning it on from here always brings back the full pill, not the tucked-away tab.
+          store.setSettings({ showBubble: item.checked, ...(item.checked ? { bubbleCollapsed: false } : {}) });
+          setBubbleVisible(item.checked && store.raw().onboarded);
           broadcast("settings:changed", store.getSettings());
+          updateTray();
         },
+      },
+      {
+        label: "Language",
+        submenu: [["auto", "Detect (English + Indian languages)"], ...fmt.LANGUAGE_CODES.map((c) => [c, fmt.LANGUAGES[c].name])].map(([code, label]) => ({
+          label,
+          type: "radio",
+          checked: fmt.normalizeLanguage(store.raw().language) === code,
+          click: () => {
+            store.setSettings({ language: code });
+            broadcast("settings:changed", store.getSettings());
+            updateTray();
+          },
+        })),
       },
       { label: "Settings…", click: () => showMain("settings") },
       { type: "separator" },
@@ -522,9 +633,14 @@ function registerIpc() {
     if ("historyRetention" in patch) pruneHistory();
     if (patch.checkUpdates) checkForUpdate();
     if ("showBubble" in patch || "onboarded" in patch) {
-      setBubbleVisible(next.showBubble && store.raw().onboarded);
+      // Switching it on in Settings brings back the full pill, not the tucked-away tab.
+      if (patch.showBubble && !prev.showBubble) store.setSettings({ bubbleCollapsed: false });
+      setBubbleVisible(store.raw().showBubble && store.raw().onboarded);
       updateTray();
+    } else if ("bubbleCollapsed" in patch) {
+      applyBubbleLayout();
     }
+    if ("language" in patch) updateTray();
     if ("theme" in patch) {
       nativeTheme.themeSource = patch.theme;
       if (!isMac && mainWindow) {
@@ -535,8 +651,9 @@ function registerIpc() {
         }
       }
     }
-    broadcast("settings:changed", next);
-    return next;
+    const current = store.getSettings();
+    broadcast("settings:changed", current);
+    return current;
   });
   ipcMain.handle("settings:setKey", (_e, provider, value) => store.setKey(provider, String(value || "").trim()));
   ipcMain.handle("settings:test", testConnection);
@@ -568,7 +685,7 @@ function registerIpc() {
   // Drag is tracked in the main process with the real cursor position, which
   // stays correct across displays and DPI scales.
   ipcMain.on("bubble:dragStart", () => {
-    if (!bubbleWindow) return;
+    if (!bubbleWindow || store.raw().bubbleCollapsed) return;
     const [wx, wy] = bubbleWindow.getPosition();
     const c = screen.getCursorScreenPoint();
     bubbleDrag = { dx: c.x - wx, dy: c.y - wy, startX: c.x, startY: c.y, moved: false };
@@ -589,16 +706,14 @@ function registerIpc() {
       return { moved: false };
     }
     const [x, y] = bubbleWindow.getPosition();
-    const snapped = clampBubble({ x, y }, true);
-    bubbleWindow.setBounds({ ...snapped, ...BUBBLE });
-    store.setSettings({ bubblePosition: snapped });
+    store.setSettings({ bubblePosition: clampBubble({ x, y }, true) });
+    applyBubbleLayout();
     return { moved: true };
   });
-  ipcMain.handle("bubble:hide", () => {
-    store.setSettings({ showBubble: false });
-    setBubbleVisible(false);
-    updateTray();
-    broadcast("settings:changed", store.getSettings());
+  ipcMain.handle("bubble:setCollapsed", (_e, collapsed) => setBubbleCollapsed(collapsed));
+  ipcMain.handle("bubble:getLayout", () => {
+    const { side, collapsed } = bubbleLayout();
+    return { side, collapsed };
   });
 
   ipcMain.on("overlay:interactive", (_e, interactive) => {
@@ -666,8 +781,9 @@ app.whenReady().then(() => {
   setInterval(pruneHistory, 5 * 60_000).unref?.();
   setTimeout(checkForUpdate, 15_000).unref?.();
   setInterval(checkForUpdate, 24 * 3600_000).unref?.();
+  screen.on("display-metrics-changed", () => applyBubbleLayout());
   screen.on("display-removed", () => {
-    if (bubbleWindow) bubbleWindow.setBounds({ ...clampBubble(store.raw().bubblePosition || defaultBubblePosition(), true), ...BUBBLE });
+    applyBubbleLayout();
   });
   const r = registerHotkey(store.raw().hotkey);
   if (!r.ok) notify("Hotkey unavailable", r.error + " Choose another in Settings.");

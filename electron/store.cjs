@@ -6,7 +6,7 @@ const path = require("node:path");
 const DEFAULT_SETTINGS = {
   onboarded: false,
   hotkey: "CommandOrControl+Shift+Space",
-  language: "auto",
+  language: "auto", // auto | en | hi | te | ta | kn
   sttProvider: "local", // local | openai | groq | custom
   localModel: "base", // on-device whisper model id
   sttModel: "whisper-1",
@@ -16,6 +16,11 @@ const DEFAULT_SETTINGS = {
   llmModel: "gpt-4o-mini",
   llmBaseUrl: "",
   tone: "natural", // natural | professional | casual | verbatim
+  smartFormat: true, // offline formatting: spoken commands, fillers, developer terms
+  formatMode: "auto", // auto (from the active app) | message | email | notes | code | prompt | other
+  useAppContext: true, // look at the active app's name and window title to pick a format
+  role: "general", // general | developer | student | writer | business | support | healthcare
+  aboutYou: "", // free text that helps the AI spell your names and terms
   autoPaste: true,
   restoreClipboard: true,
   soundEffects: true,
@@ -24,18 +29,21 @@ const DEFAULT_SETTINGS = {
   micDeviceId: "default",
   historyRetention: "30d", // forever | 3h | 24h | 7d | 30d
   checkUpdates: true, // ask GitHub for new releases (no data sent)
-  showBubble: true, // always-on-top floating dictation button
+  showBubble: true, // always-on-top floating dictation pill
+  bubbleCollapsed: false, // tucked into the screen edge as a slim tab
   bubblePosition: null, // { x, y } in screen coordinates
   keys: {}, // provider -> encrypted key (base64)
 };
 
 function createStore(app, safeStorage) {
   const dir = app.getPath("userData");
-  const file = path.join(dir, "wisprflow-data.json");
+  const file = path.join(dir, "vaakya-data.json");
   let data = { settings: { ...DEFAULT_SETTINGS }, history: [], dictionary: [] };
 
   try {
-    const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    // Installs from before the rename kept their data under the old file name.
+    const legacy = path.join(dir, "wisprflow-data.json");
+    const raw = JSON.parse(fs.readFileSync(!fs.existsSync(file) && fs.existsSync(legacy) ? legacy : file, "utf8"));
     data = {
       settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
       history: Array.isArray(raw.history) ? raw.history : [],

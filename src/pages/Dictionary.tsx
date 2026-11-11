@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, BookA, Plus, Trash2 } from "lucide-react";
 import { Button, Card, EmptyState, IconButton, Input, useToast } from "../components/ui";
-import { wispr } from "../lib/wispr";
-import type { DictionaryEntry } from "../lib/wispr";
+import { bridge } from "../lib/bridge";
+import type { DictionaryEntry } from "../lib/bridge";
 
 export default function Dictionary() {
   const [list, setList] = useState<DictionaryEntry[]>([]);
@@ -12,12 +12,12 @@ export default function Dictionary() {
   const toast = useToast();
 
   useEffect(() => {
-    wispr.getDictionary().then(setList);
+    bridge.getDictionary().then(setList);
   }, []);
 
   const save = (next: DictionaryEntry[]) => {
     setList(next);
-    wispr.setDictionary(next);
+    bridge.setDictionary(next);
   };
 
   const add = () => {
@@ -38,7 +38,7 @@ export default function Dictionary() {
       <header className="mb-6">
         <h1 className="text-[26px] font-semibold tracking-[-0.02em]">Dictionary</h1>
         <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-fg-3">
-          Teach WisprFlow names, jargon and acronyms so they're spelled right every time. Add a replacement to fix words it
+          Teach Vaakya names, jargon and acronyms so they're spelled right every time. Add a replacement to fix words it
           consistently mishears.
         </p>
       </header>

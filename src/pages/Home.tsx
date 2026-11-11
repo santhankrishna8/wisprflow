@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 import { Button, Card, Hotkey, SectionTitle, cx, EmptyState } from "../components/ui";
 import { TranscriptRow } from "../components/Transcript";
 import { computeStats, formatDuration, formatNumber } from "../lib/stats";
-import { wispr } from "../lib/wispr";
-import type { DictationState, HistoryEntry, Settings } from "../lib/wispr";
+import { bridge } from "../lib/bridge";
+import { LanguagePicker } from "../components/LanguagePicker";
+import { FORMAT_MODES } from "../lib/providers";
+import type { DictationState, HistoryEntry, Settings } from "../lib/bridge";
 import type { Route } from "../App";
 
 function greeting() {
@@ -52,6 +54,16 @@ export default function Home({
 
       <Hero state={state} hotkey={settings.hotkey} />
 
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1">
+        <div className="flex items-center gap-3">
+          <span className="text-[12.5px] font-medium text-fg-3">I'm speaking</span>
+          <LanguagePicker compact value={settings.language} onChange={(code) => bridge.setSettings({ language: code })} />
+        </div>
+        <button onClick={() => onNavigate("settings")} className="text-[12.5px] font-medium text-fg-2 hover:text-fg hover:underline">
+          Formatting: {FORMAT_MODES.find((m) => m.value === (settings.formatMode || "auto"))?.label}
+        </button>
+      </div>
+
       {/* Stats */}
       <div className="mt-5 grid grid-cols-4 gap-3">
         <Stat icon={<Type className="size-4" />} label="Words dictated" value={formatNumber(stats.words)}>
@@ -95,10 +107,9 @@ function Hero({ state, hotkey }: { state: DictationState; hotkey: string }) {
   const recording = state.status === "recording";
   const processing = state.status === "processing";
   return (
-    <div className="relative overflow-hidden rounded-[22px] bg-[#121218] p-8 text-white shadow-lg ring-1 ring-black/5 dark:ring-white/10">
+    <div className="relative overflow-hidden rounded-[22px] bg-panel p-8 text-white shadow-lg ring-1 ring-black/5 dark:ring-white/10">
       {/* Mesh glow */}
-      <div className="pointer-events-none absolute -top-24 -right-16 size-[340px] rounded-full bg-[#6d4dff] opacity-45 blur-[90px]" />
-      <div className="pointer-events-none absolute -bottom-32 right-40 size-[280px] rounded-full bg-[#ff5c8a] opacity-30 blur-[90px]" />
+      <div className="pointer-events-none absolute -top-24 -right-16 size-[340px] rounded-full bg-[#9fd6cf] opacity-20 blur-[90px]" />
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
         style={{
@@ -110,7 +121,7 @@ function Hero({ state, hotkey }: { state: DictationState; hotkey: string }) {
       <div className="relative flex items-center justify-between gap-8">
         <div className="max-w-[440px]">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[11.5px] font-medium text-white/80 ring-1 ring-inset ring-white/10">
-            <span className="size-1.5 rounded-full bg-[#3dd68c]" />
+            <span className="size-1.5 rounded-full bg-[#9fd6cf]" />
             Works in every app
           </div>
           <h2 className="text-[24px] leading-tight font-semibold tracking-[-0.02em]">
@@ -120,39 +131,39 @@ function Hero({ state, hotkey }: { state: DictationState; hotkey: string }) {
           </h2>
           <div className="mt-6 flex items-center gap-3 text-[13px] text-white/60">
             <Hotkey accel={hotkey} tone="inverse" />
-            <span>or the floating button · <span className="text-white/80">Esc</span> to cancel</span>
+            <span>or the pill at the screen edge · <span className="text-white/80">Esc</span> to cancel</span>
           </div>
         </div>
 
         <button
-          onClick={() => wispr.toggleDictation()}
+          onClick={() => bridge.toggleDictation()}
           disabled={processing}
           aria-label={recording ? "Stop dictation" : "Start dictation"}
           className="group relative mr-4 flex size-[104px] shrink-0 items-center justify-center"
         >
           {recording && (
             <>
-              <span className="absolute inset-0 rounded-full bg-[#ff5c8a]/40" style={{ animation: "pulse-ring 1.6s ease-out infinite" }} />
-              <span className="absolute inset-0 rounded-full bg-[#ff5c8a]/30" style={{ animation: "pulse-ring 1.6s ease-out 0.8s infinite" }} />
+              <span className="absolute inset-0 rounded-full bg-[#9fd6cf]/40" style={{ animation: "pulse-ring 1.6s ease-out infinite" }} />
+              <span className="absolute inset-0 rounded-full bg-[#9fd6cf]/30" style={{ animation: "pulse-ring 1.6s ease-out 0.8s infinite" }} />
             </>
           )}
           <span className="absolute inset-0 rounded-full bg-white/[0.06] ring-1 ring-white/15 transition group-hover:bg-white/[0.1]" />
           <span
             className={cx(
-              "relative flex size-[72px] items-center justify-center rounded-full shadow-[0_10px_40px_-8px_rgba(139,114,255,0.8)] transition-transform duration-200 group-hover:scale-105 group-active:scale-95",
-              recording ? "bg-[#ff5c8a] shadow-[0_10px_40px_-8px_rgba(255,92,138,0.9)]" : "brand-gradient"
+              "relative flex size-[72px] items-center justify-center rounded-full text-[#06525c] shadow-[0_10px_40px_-8px_rgba(6,40,44,0.8)] transition-transform duration-200 group-hover:scale-105 group-active:scale-95",
+              recording ? "bg-[#9fd6cf]" : "bg-[#f7f9f8]"
             )}
           >
             {processing ? (
               <span className="flex gap-1">
                 {[0, 1, 2].map((i) => (
-                  <span key={i} className="h-4 w-1 rounded-full bg-white" style={{ animation: `bar 0.9s ease-in-out ${i * 0.15}s infinite` }} />
+                  <span key={i} className="h-4 w-1 rounded-full bg-current" style={{ animation: `bar 0.9s ease-in-out ${i * 0.15}s infinite` }} />
                 ))}
               </span>
             ) : recording ? (
-              <Square className="size-6 fill-white text-white" />
+              <Square className="size-6 fill-current" />
             ) : (
-              <Mic className="size-7 text-white" strokeWidth={2.2} />
+              <Mic className="size-7" strokeWidth={2.2} />
             )}
           </span>
         </button>

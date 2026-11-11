@@ -1,4 +1,4 @@
-import { isMac } from "./wispr";
+import { isMac } from "./bridge";
 
 const CODE_MAP: Record<string, string> = {
   Space: "Space",

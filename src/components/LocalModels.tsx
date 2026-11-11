@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Cpu, Download, Trash2, X } from "lucide-react";
+import { Check, CircleAlert, Cpu, Download, Trash2, X } from "lucide-react";
+import { languageName, normalizeLanguage } from "../lib/providers";
 import { Badge, Button, IconButton, cx, useToast } from "./ui";
-import { wispr } from "../lib/wispr";
-import type { LocalModel, LocalProgress } from "../lib/wispr";
+import { bridge } from "../lib/bridge";
+import type { LocalModel, LocalProgress } from "../lib/bridge";
 
 export function useLocalModels() {
   const [models, setModels] = useState<LocalModel[]>([]);
   const [progress, setProgress] = useState<Record<string, LocalProgress>>({});
   const [available, setAvailable] = useState(true);
-  const refresh = useCallback(async () => setModels(await wispr.localModels()), []);
+  const refresh = useCallback(async () => setModels(await bridge.localModels()), []);
   useEffect(() => {
     refresh();
-    wispr.localInfo().then((i) => setAvailable(i.available));
-    return wispr.onLocalProgress((p) => setProgress((x) => ({ ...x, [p.id]: p })));
+    bridge.localInfo().then((i) => setAvailable(i.available));
+    return bridge.onLocalProgress((p) => setProgress((x) => ({ ...x, [p.id]: p })));
   }, [refresh]);
   return { models, progress, setProgress, refresh, available };
 }
+
+const findModel = (models: LocalModel[], id: string) => models.find((m) => m.id === id);
 
 function mb(bytes: number) {
   return `${Math.round(bytes / 1e6)} MB`;
@@ -26,11 +29,18 @@ export function LocalModelPicker({
   value,
   onChange,
   state,
+  language = "en",
 }: {
   value: string;
   onChange: (id: string) => void;
   state: ReturnType<typeof useLocalModels>;
+  /** The language being dictated: changes which model is recommended. */
+  language?: string;
 }) {
+  const code = normalizeLanguage(language);
+  const indic = code !== "en"; // Indian languages, or auto-detect that may include them
+  const spoken = code === "auto" ? "Indian languages" : languageName(code);
+  const chosen = findModel(state.models, value);
   const { models, progress, setProgress, refresh, available } = state;
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const toast = useToast();
@@ -38,7 +48,7 @@ export function LocalModelPicker({
   const download = async (id: string) => {
     setBusy((b) => ({ ...b, [id]: true }));
     onChange(id);
-    const r = await wispr.downloadLocalModel(id);
+    const r = await bridge.downloadLocalModel(id);
     setBusy((b) => ({ ...b, [id]: false }));
     setProgress((p) => {
       const { [id]: _, ...rest } = p;
@@ -52,13 +62,22 @@ export function LocalModelPicker({
   if (!available) {
     return (
       <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-[13px] text-fg-2">
-        The on-device engine isn't included in this build. Reinstall WisprFlow from the latest installer to use it.
+        The on-device engine isn't included in this build. Reinstall Vaakya from the latest installer to use it.
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-2">
+      {indic && chosen?.english && (
+        <p className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-[12.5px] leading-relaxed text-fg-2">
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+          <span>
+            <span className="font-semibold text-fg">{chosen.name} is only reliable for English.</span> With {spoken} it often
+            writes the wrong language or the wrong words. Download <span className="font-semibold text-fg">Large v3 Turbo</span> below, or use Groq for the fastest accurate results.
+          </span>
+        </p>
+      )}
       {models.map((m) => {
         const selected = value === m.id;
         const p = progress[m.id];
@@ -85,7 +104,7 @@ export function LocalModelPicker({
               <span
                 className={cx(
                   "flex size-4 shrink-0 items-center justify-center rounded-full border",
-                  selected ? "border-accent bg-accent text-white" : "border-line-strong"
+                  selected ? "border-accent bg-accent text-accent-ink" : "border-line-strong"
                 )}
               >
                 {selected && <Check className="size-2.5" strokeWidth={3.5} />}
@@ -94,7 +113,8 @@ export function LocalModelPicker({
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-semibold">{m.name}</span>
                   <span className="text-[12px] text-fg-3 tabular-nums">{m.size}</span>
-                  {m.recommended && <Badge tone="accent">Recommended</Badge>}
+                  {(indic ? m.indic : m.recommended) && <Badge tone="accent">Recommended</Badge>}
+                  {indic && m.english && <Badge tone="warning">English only</Badge>}
                 </div>
                 <div className="mt-0.5 text-[12px] text-fg-3">
                   {downloading && p ? `Downloading… ${mb(p.received)} of ${mb(p.total)} (${pct}%)` : m.blurb}
@@ -105,7 +125,7 @@ export function LocalModelPicker({
                   label="Cancel download"
                   onClick={(e) => {
                     e.stopPropagation();
-                    wispr.cancelLocalDownload(m.id);
+                    bridge.cancelLocalDownload(m.id);
                   }}
                 >
                   <X className="size-4" />
@@ -120,7 +140,7 @@ export function LocalModelPicker({
                     className="hover:text-danger"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      await wispr.deleteLocalModel(m.id);
+                      await bridge.deleteLocalModel(m.id);
                       await refresh();
                       toast(`${m.name} model removed`);
                     }}

@@ -8,7 +8,7 @@ function on(channel) {
   };
 }
 
-contextBridge.exposeInMainWorld("wispr", {
+contextBridge.exposeInMainWorld("vaakya", {
   platform: process.platform,
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSettings: (patch) => ipcRenderer.invoke("settings:set", patch),
@@ -43,7 +43,9 @@ contextBridge.exposeInMainWorld("wispr", {
   bubbleDragStart: () => ipcRenderer.send("bubble:dragStart"),
   bubbleDragMove: () => ipcRenderer.send("bubble:dragMove"),
   bubbleDragEnd: () => ipcRenderer.invoke("bubble:dragEnd"),
-  hideBubble: () => ipcRenderer.invoke("bubble:hide"),
+  setBubbleCollapsed: (collapsed) => ipcRenderer.invoke("bubble:setCollapsed", Boolean(collapsed)),
+  getBubbleLayout: () => ipcRenderer.invoke("bubble:getLayout"),
+  onBubbleLayout: on("bubble:layout"),
 
   localInfo: () => ipcRenderer.invoke("local:info"),
   localModels: () => ipcRenderer.invoke("local:list"),

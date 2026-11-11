@@ -12,7 +12,7 @@ const { createLocalWhisper } = require("../electron/localWhisper.cjs");
 
 async function main() {
   const binDir = path.resolve(process.argv[2] || "release/win-unpacked/resources/whisper");
-  const modelsDir = path.join(os.tmpdir(), "wisprflow-smoke-models");
+  const modelsDir = path.join(os.tmpdir(), "vaakya-smoke-models");
   const lw = createLocalWhisper({ binDir, modelsDir });
   if (!lw.engineAvailable()) throw new Error(`No whisper-server in ${binDir}`);
 
@@ -31,8 +31,14 @@ async function main() {
   await lw.ensureServer("tiny");
   console.log(`Engine started in ${Date.now() - t0} ms`);
   t0 = Date.now();
-  const text = await lw.transcribe({ wav, modelId: "tiny", language: "auto" });
-  console.log(`Transcribed in ${Date.now() - t0} ms: "${text}"`);
+  // Auto-detect limited to the app's languages: English speech must come back as English.
+  const { text, language } = await lw.transcribe({ wav, modelId: "tiny", language: "auto", allowed: ["en", "hi", "te", "ta", "kn"] });
+  console.log(`Transcribed in ${Date.now() - t0} ms (${language}): "${text}"`);
+  if (language !== "en") throw new Error(`Expected English to be detected, got "${language}"`);
+  // When the detected language isn't one the speaker uses, the engine must fall back to one that is.
+  const forced = await lw.transcribe({ wav, modelId: "tiny", language: "auto", allowed: ["hi", "te"] });
+  console.log(`Restricted to Hindi/Telugu (${forced.language}): "${forced.text}"`);
+  if (!["hi", "te"].includes(forced.language)) throw new Error(`Expected a fallback to hi or te, got "${forced.language}"`);
   await lw.stop();
 
   const t = text.toLowerCase();

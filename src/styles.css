@@ -1,52 +1,60 @@
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---------- Design tokens ---------- */
+/* ---------- Design tokens ----------
+   Same palette as the website: an off-white page with deep teal ink, and a
+   dark teal ground with mint ink at night. */
 :root {
-  --bg: #f7f7f5;
-  --sidebar: #f0f0ed;
+  --bg: #f7f9f8;
+  --sidebar: #eef3f1;
   --surface: #ffffff;
-  --surface-2: #f4f4f2;
-  --surface-3: #ebebe8;
-  --line: rgba(20, 20, 30, 0.08);
-  --line-strong: rgba(20, 20, 30, 0.14);
-  --text: #18181d;
-  --text-2: #55555f;
-  --text-3: #8a8a94;
-  --accent: #6d4dff;
-  --accent-2: #ff5c8a;
-  --accent-soft: rgba(109, 77, 255, 0.1);
-  --accent-text: #5a3cf0;
-  --success: #12a150;
-  --danger: #e5484d;
-  --warning: #e08a00;
-  --shadow-sm: 0 1px 2px rgba(16, 16, 24, 0.05);
-  --shadow-md: 0 1px 2px rgba(16, 16, 24, 0.04), 0 6px 20px -6px rgba(16, 16, 24, 0.1);
-  --shadow-lg: 0 2px 4px rgba(16, 16, 24, 0.04), 0 24px 60px -16px rgba(16, 16, 24, 0.22);
+  --surface-2: #f1f5f3;
+  --surface-3: #e3ebe8;
+  --line: rgba(6, 82, 92, 0.1);
+  --line-strong: rgba(6, 82, 92, 0.2);
+  --text: #06525c;
+  --text-2: #2f737d;
+  --text-3: #5b8a90;
+  --accent: #06525c;
+  --accent-ink: #f7f9f8;
+  --accent-2: #9fd6cf;
+  --accent-soft: rgba(6, 82, 92, 0.08);
+  --accent-text: #06525c;
+  --panel: #06525c;
+  --panel-2: #205d66;
+  --success: #0f8a5f;
+  --danger: #c8403f;
+  --warning: #b86e00;
+  --shadow-sm: 0 1px 2px rgba(6, 40, 44, 0.05);
+  --shadow-md: 0 1px 2px rgba(6, 40, 44, 0.04), 0 6px 20px -6px rgba(6, 40, 44, 0.12);
+  --shadow-lg: 0 2px 4px rgba(6, 40, 44, 0.04), 0 24px 60px -16px rgba(6, 40, 44, 0.28);
   color-scheme: light;
 }
 
 .dark {
-  --bg: #0d0d11;
-  --sidebar: #0a0a0d;
-  --surface: #15151b;
-  --surface-2: #1b1b22;
-  --surface-3: #24242d;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-strong: rgba(255, 255, 255, 0.13);
-  --text: #ededf0;
-  --text-2: #a4a4b0;
-  --text-3: #6c6c78;
-  --accent: #8b72ff;
-  --accent-2: #ff6b98;
-  --accent-soft: rgba(139, 114, 255, 0.14);
-  --accent-text: #a996ff;
-  --success: #3dd68c;
-  --danger: #ff6369;
-  --warning: #ffb224;
+  --bg: #071c1f;
+  --sidebar: #05171a;
+  --surface: #0d2b2f;
+  --surface-2: #12363b;
+  --surface-3: #1a444a;
+  --line: rgba(159, 214, 207, 0.1);
+  --line-strong: rgba(159, 214, 207, 0.2);
+  --text: #e9f1f0;
+  --text-2: #a9c4c5;
+  --text-3: #7a9da0;
+  --accent: #9fd6cf;
+  --accent-ink: #06282c;
+  --accent-2: #9fd6cf;
+  --accent-soft: rgba(159, 214, 207, 0.12);
+  --accent-text: #9fd6cf;
+  --panel: #0d2b2f;
+  --panel-2: #12363b;
+  --success: #5fd6a4;
+  --danger: #ff7a76;
+  --warning: #f0b450;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.3), 0 30px 70px -20px rgba(0, 0, 0, 0.7);
@@ -54,8 +62,9 @@
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Geist has no Indian scripts: the system fonts after it render Telugu, Tamil, Hindi and Kannada. */
+  --font-sans: "Geist Variable", "Nirmala UI", "Noto Sans", "Kohinoor Devanagari", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
   --color-bg: var(--bg);
   --color-sidebar: var(--sidebar);
   --color-surface: var(--surface);
@@ -68,6 +77,9 @@
   --color-fg-3: var(--text-3);
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
+  --color-accent-ink: var(--accent-ink);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
   --color-success: var(--success);
@@ -89,7 +101,6 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01", "ss03";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
@@ -135,13 +146,11 @@ button {
 }
 
 .brand-gradient {
-  background: linear-gradient(135deg, var(--accent) 0%, #a24bff 50%, var(--accent-2) 100%);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .brand-text {
-  background: linear-gradient(100deg, var(--accent) 0%, #b65cff 45%, var(--accent-2) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--accent-text);
 }
 
 /* ---------- Motion ---------- */
@@ -240,13 +249,12 @@ html.bubble,
 html.bubble body {
   background: transparent !important;
 }
-@keyframes bubble-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
+@keyframes pill-line {
+  0%,
   100% {
-    transform: scale(1.6);
-    opacity: 0;
+    transform: scaleX(0.45);
+  }
+  50% {
+    transform: scaleX(1);
   }
 }

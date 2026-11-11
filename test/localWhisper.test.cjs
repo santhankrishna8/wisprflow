@@ -84,8 +84,9 @@ test("starts on demand, transcribes WAV, reuses the server, and stops when idle"
   assert.strictEqual(lw.isRunning(), false);
 
   const wav = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(100)]);
-  const text = await lw.transcribe({ wav, modelId: "mini", language: "en" });
+  const { text, language } = await lw.transcribe({ wav, modelId: "mini", language: "en" });
   assert.strictEqual(text, "Hello world.");
+  assert.strictEqual(language, "en");
   assert.strictEqual(lw.isRunning(), true);
   assert.strictEqual(lw.runningModel(), "mini");
 
@@ -126,6 +127,40 @@ test("sends WAV, language and anti-hallucination thresholds", async () => {
   assert.ok(echo.model.endsWith("ggml-mini.bin"));
   await lw.stop();
   assert.strictEqual(lw.isRunning(), false);
+});
+
+test("auto-detect falls back to the likeliest allowed language", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-"));
+  fs.mkdirSync(path.join(dir, "models"));
+  fs.writeFileSync(path.join(dir, "models", MODEL.file), Buffer.alloc(MODEL.bytes));
+  const lw = make(dir, "http://unused");
+  const origFetch = global.fetch;
+  const seen = [];
+  global.fetch = async (...a) => {
+    const r = await origFetch(...a);
+    if (String(a[0]).endsWith("/inference")) seen.push((await r.clone().json()).echo);
+    return r;
+  };
+  try {
+    // The fake server "detects" Nepali; Telugu is the likeliest of the speaker's languages.
+    const r = await lw.transcribe({
+      wav: Buffer.from("RIFF1234"),
+      modelId: "mini",
+      language: "auto",
+      allowed: ["en", "hi", "te", "ta", "kn"],
+      promptFor: (l) => `prompt-${l}`,
+    });
+    assert.strictEqual(r.language, "te");
+    assert.deepStrictEqual(seen.map((e) => e.language), ["auto", "te"]);
+    assert.deepStrictEqual(seen.map((e) => e.prompt), ["prompt-auto", "prompt-te"]);
+    // A fixed language never triggers a second pass.
+    seen.length = 0;
+    await lw.transcribe({ wav: Buffer.from("RIFF1234"), modelId: "mini", language: "kn", allowed: ["en", "kn"] });
+    assert.deepStrictEqual(seen.map((e) => e.language), ["kn"]);
+  } finally {
+    global.fetch = origFetch;
+    await lw.stop();
+  }
 });
 
 test("clear errors when the model or engine is missing", async () => {

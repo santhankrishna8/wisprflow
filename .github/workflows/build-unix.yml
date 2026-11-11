@@ -13,11 +13,11 @@ jobs:
         include:
           - os: macos-latest
             script: dist:mac
-            artifact: WisprFlow-macOS
+            artifact: Vaakya-macOS
             glob: release/*.dmg
           - os: ubuntu-latest
             script: dist:linux
-            artifact: WisprFlow-Linux
+            artifact: Vaakya-Linux
             glob: |
               release/*.AppImage
               release/*.deb

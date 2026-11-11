@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Check, Copy, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { Badge, IconButton, cx, useToast } from "./ui";
 import { timeLabel } from "../lib/stats";
-import { wispr } from "../lib/wispr";
-import type { HistoryEntry } from "../lib/wispr";
+import { bridge } from "../lib/bridge";
+import type { HistoryEntry } from "../lib/bridge";
 
 export function TranscriptRow({ entry, onDelete, compact }: { entry: HistoryEntry; onDelete?: (id: string) => void; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -12,7 +12,7 @@ export function TranscriptRow({ entry, onDelete, compact }: { entry: HistoryEntr
   const text = showRaw ? entry.raw : entry.text;
 
   const copy = async () => {
-    await wispr.copy(text);
+    await bridge.copy(text);
     setCopied(true);
     toast("Copied to clipboard", "success");
     setTimeout(() => setCopied(false), 1400);

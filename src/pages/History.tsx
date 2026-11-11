@@ -3,7 +3,7 @@ import { Download, History as HistoryIcon, Search, Trash2, X } from "lucide-reac
 import { Button, Card, EmptyState, Input, useToast } from "../components/ui";
 import { TranscriptRow } from "../components/Transcript";
 import { dayLabel } from "../lib/stats";
-import type { HistoryEntry } from "../lib/wispr";
+import type { HistoryEntry } from "../lib/bridge";
 
 const RETENTION_LABEL: Record<string, string> = { "3h": "3 hours", "24h": "24 hours", "7d": "7 days", "30d": "30 days" };
 
@@ -39,7 +39,7 @@ export default function History({
     const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `wisprflow-history-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `vaakya-history-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };

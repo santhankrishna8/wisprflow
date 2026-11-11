@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BookA, History as HistoryIcon, Home as HomeIcon, Settings as SettingsIcon } from "lucide-react";
 import { Hotkey, Logo, ToastProvider, cx } from "./components/ui";
 import { useDictationState, useHistory, useResolvedTheme, useSettings } from "./lib/useApp";
-import { isMac, wispr } from "./lib/wispr";
+import { isMac, bridge } from "./lib/bridge";
 import Home from "./pages/Home";
 import History from "./pages/History";
 import Dictionary from "./pages/Dictionary";
@@ -26,11 +26,11 @@ export default function App() {
   const [route, setRoute] = useState<Route>(initial);
   useResolvedTheme(settings?.theme);
 
-  useEffect(() => wispr.onNavigate((r) => setRoute(r as Route)), []);
+  useEffect(() => bridge.onNavigate((r) => setRoute(r as Route)), []);
   const [newRelease, setNewRelease] = useState<{ version: string; url: string } | null>(null);
   useEffect(() => {
-    wispr.getUpdate().then(setNewRelease);
-    return wispr.onUpdate(setNewRelease);
+    bridge.getUpdate().then(setNewRelease);
+    return bridge.onUpdate(setNewRelease);
   }, []);
 
   if (!settings) return <div className="h-full bg-bg" />;
@@ -50,7 +50,7 @@ export default function App() {
         <aside className="drag flex w-[232px] shrink-0 flex-col border-r border-line bg-sidebar">
           <div className={cx("flex items-center gap-2.5 px-5", isMac ? "pt-12 pb-5" : "pt-5 pb-5")}>
             <Logo size={26} />
-            <span className="text-[15px] font-semibold tracking-tight">WisprFlow</span>
+            <span className="text-[15px] font-semibold tracking-tight">Vaakya</span>
           </div>
           <nav className="no-drag flex flex-col gap-0.5 px-3">
             {NAV.map(({ id, label, icon: Icon }) => {
@@ -77,7 +77,7 @@ export default function App() {
           <div className="no-drag mt-auto flex flex-col gap-2 p-3">
             {newRelease && (
               <button
-                onClick={() => wispr.openExternal(newRelease.url)}
+                onClick={() => bridge.openExternal(newRelease.url)}
                 className="w-full rounded-xl border border-accent/30 bg-accent-soft/60 px-3.5 py-2.5 text-left text-[12px] font-medium text-accent-text hover:bg-accent-soft"
               >
                 Update available — v{newRelease.version}
@@ -108,21 +108,21 @@ function StatusCard({ status, hotkey }: { status: string; hotkey: string }) {
   const processing = status === "processing";
   return (
     <button
-      onClick={() => wispr.toggleDictation()}
+      onClick={() => bridge.toggleDictation()}
       className={cx(
         "w-full rounded-2xl border p-3.5 text-left transition-all",
         recording
-          ? "border-transparent bg-[#18181d] text-white shadow-lg dark:bg-[#22222a]"
+          ? "border-transparent bg-panel text-white shadow-lg"
           : "border-line bg-surface shadow-sm hover:shadow-md"
       )}
     >
       <div className="flex items-center gap-2">
         <span className="relative flex size-2">
-          {recording && <span className="absolute inset-0 animate-ping rounded-full bg-[#ff5c8a]" />}
+          {recording && <span className="absolute inset-0 animate-ping rounded-full bg-[#9fd6cf]" />}
           <span
             className={cx(
               "relative size-2 rounded-full",
-              recording ? "bg-[#ff5c8a]" : processing ? "animate-pulse bg-accent" : "bg-success"
+              recording ? "bg-[#9fd6cf]" : processing ? "animate-pulse bg-accent" : "bg-success"
             )}
           />
         </span>

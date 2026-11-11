@@ -15,10 +15,16 @@ http
         const body = Buffer.concat(chunks).toString("latin1");
         const field = (n) => (body.match(new RegExp(`name="${n}"\\r\\n\\r\\n([^\\r]*)`)) || [])[1];
         res.setHeader("content-type", "application/json");
+        // Like the real server: verbose_json reports which language it detected.
+        const verbose =
+          field("response_format") === "verbose_json"
+            ? { detected_language: "ne", language_probabilities: { ne: 0.5, te: 0.3, hi: 0.1, en: 0.01 } }
+            : {};
         res.end(
           JSON.stringify({
+            ...verbose,
             text: ` Hello [BLANK_AUDIO]  world. `,
-            echo: { hasWav: body.includes("RIFF"), language: field("language"), entropy: field("entropy_thold"), model: get("--model"), requests },
+            echo: { hasWav: body.includes("RIFF"), language: field("language"), prompt: field("prompt"), entropy: field("entropy_thold"), model: get("--model"), requests },
           })
         );
       });

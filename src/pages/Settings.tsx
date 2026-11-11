@@ -17,16 +17,17 @@ import {
   cx,
   useToast,
 } from "../components/ui";
-import { LANGUAGES, LLM_PROVIDERS, OLLAMA_PRESET, STT_PROVIDERS, TONES } from "../lib/providers";
+import { FORMAT_MODES, INDIC, LLM_PROVIDERS, OLLAMA_PRESET, ROLES, STT_PROVIDERS, TONES, languageName, normalizeLanguage } from "../lib/providers";
+import { LanguagePicker } from "../components/LanguagePicker";
 import { LocalModelPicker, useLocalModels } from "../components/LocalModels";
-import { isMac, wispr } from "../lib/wispr";
-import type { LlmProvider, Settings, SttProvider, Theme } from "../lib/wispr";
+import { isMac, bridge } from "../lib/bridge";
+import type { LlmProvider, Settings, SttProvider, Theme } from "../lib/bridge";
 
 type Tab = "general" | "transcription" | "cleanup" | "appearance" | "about";
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "general", label: "General" },
   { id: "transcription", label: "Transcription" },
-  { id: "cleanup", label: "AI cleanup" },
+  { id: "cleanup", label: "Formatting" },
   { id: "appearance", label: "Appearance" },
   { id: "about", label: "About" },
 ];
@@ -89,7 +90,7 @@ function General({ settings, update }: Props) {
             <HotkeyRecorder
               value={settings.hotkey}
               onSave={async (accel) => {
-                const r = await wispr.setHotkey(accel);
+                const r = await bridge.setHotkey(accel);
                 if (r.ok) toast("Shortcut updated", "success");
                 return r.ok ? null : r.error || "Couldn't register shortcut";
               }}
@@ -107,9 +108,19 @@ function General({ settings, update }: Props) {
           <Row title="Restore clipboard" description="Put back whatever you had copied after pasting.">
             <Switch checked={settings.restoreClipboard} onChange={(v) => update({ restoreClipboard: v })} label="Restore clipboard" />
           </Row>
-          <Row title="Floating button" description="A small always-on-top button at the edge of your screen. Click to dictate, drag to move.">
-            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Floating button" />
+          <Row
+            title="Floating pill"
+            description="A slim pill at the edge of your screen. Click to dictate, drag to move. Its arrow tucks it into the edge; click the tab that's left to bring it back."
+          >
+            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Floating pill" />
           </Row>
+          {settings.showBubble && settings.bubbleCollapsed && (
+            <Row title="The pill is tucked into the screen edge" description="Look for the slim tab on the side of your screen, or bring the pill back from here.">
+              <Button size="sm" onClick={() => bridge.setBubbleCollapsed(false)}>
+                Bring it back
+              </Button>
+            </Row>
+          )}
           <Row title="Sound effects" description="Soft chimes when recording starts and stops.">
             <Switch checked={settings.soundEffects} onChange={(v) => update({ soundEffects: v })} label="Sound effects" />
           </Row>
@@ -153,7 +164,7 @@ function General({ settings, update }: Props) {
           <Row title="Check for updates" description="Asks GitHub whether a newer release exists, about once a day. Nothing about you is sent.">
             <Switch checked={settings.checkUpdates} onChange={(v) => update({ checkUpdates: v })} label="Check for updates" />
           </Row>
-          <Row title="Launch at login" description="Start WisprFlow quietly in the background.">
+          <Row title="Launch at login" description="Start Vaakya quietly in the background.">
             <Switch checked={settings.launchAtLogin} onChange={(v) => update({ launchAtLogin: v })} label="Launch at login" />
           </Row>
           {isMac && <PermissionsRow />}
@@ -166,7 +177,7 @@ function General({ settings, update }: Props) {
 function PermissionsRow() {
   const [acc, setAcc] = useState<boolean | null>(null);
   useEffect(() => {
-    wispr.getPermissions().then((p) => setAcc(p.accessibility));
+    bridge.getPermissions().then((p) => setAcc(p.accessibility));
   }, []);
   return (
     <Row title="Accessibility access" description="Required on macOS to paste into other apps.">
@@ -175,7 +186,7 @@ function PermissionsRow() {
           <Check className="size-4" /> Granted
         </span>
       ) : (
-        <Button size="sm" onClick={() => wispr.openAccessibility()}>
+        <Button size="sm" onClick={() => bridge.openAccessibility()}>
           Grant access
         </Button>
       )}
@@ -210,7 +221,7 @@ function ProviderCards<T extends string>({
               <span
                 className={cx(
                   "flex size-4 items-center justify-center rounded-full border",
-                  active ? "border-accent bg-accent text-white" : "border-line-strong"
+                  active ? "border-accent bg-accent text-accent-ink" : "border-line-strong"
                 )}
               >
                 {active && <Check className="size-2.5" strokeWidth={3.5} />}
@@ -234,7 +245,7 @@ function TestButton({ kind }: { kind: "stt" | "llm" }) {
         icon={<Plug className="size-3.5" />}
         onClick={async () => {
           setState({ loading: true });
-          setState(await wispr.testConnection(kind));
+          setState(await bridge.testConnection(kind));
         }}
       >
         Test connection
@@ -294,7 +305,7 @@ function ModelPicker({ models, value, onChange }: { models: string[]; value: str
 function KeyLink({ url }: { url?: string }) {
   if (!url) return null;
   return (
-    <button onClick={() => wispr.openExternal(url)} className="inline-flex items-center gap-1 font-medium text-accent-text hover:underline">
+    <button onClick={() => bridge.openExternal(url)} className="inline-flex items-center gap-1 font-medium text-accent-text hover:underline">
       Get a key <ExternalLink className="size-3" />
     </button>
   );
@@ -304,8 +315,22 @@ function Transcription({ settings, update, refresh }: Props) {
   const p = STT_PROVIDERS[settings.sttProvider];
   const choose = (v: SttProvider) =>
     update({ sttProvider: v, sttModel: STT_PROVIDERS[v].models[0] || STT_PROVIDERS[v].defaultModel || settings.sttModel });
+  const lang = normalizeLanguage(settings.language);
   return (
     <div className="flex flex-col gap-8">
+      <section>
+        <SectionTitle
+          title="Language you speak"
+          description="Choosing your language is faster and far more accurate than Auto, especially for Telugu, Tamil and Kannada."
+        />
+        <LanguagePicker value={settings.language} onChange={(code) => update({ language: code })} />
+        {lang !== "en" && (
+          <p className="mt-3 px-1 text-[12px] leading-relaxed text-fg-3">
+            English words you mix in ({lang === "auto" ? "names, technical terms" : `while speaking ${languageName(lang)}`}) stay in English. You can also switch language from the
+            tray icon's menu.
+          </p>
+        )}
+      </section>
       <section>
         <SectionTitle title="Speech-to-text provider" description="Audio is sent only to the provider you choose — never anywhere else." />
         <ProviderCards
@@ -331,20 +356,9 @@ function Transcription({ settings, update, refresh }: Props) {
         <Field label={settings.sttProvider === "custom" ? "API key (optional)" : `${p.name} API key`} hint={<KeyLink url={p.keyUrl} />}>
           <KeyInput provider={settings.sttProvider} hasKey={!!settings.hasKey?.[settings.sttProvider]} placeholder={p.keyPrefix} onSaved={refresh} />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Model">
-            <ModelPicker models={p.models} value={settings.sttModel} onChange={(v) => update({ sttModel: v })} />
-          </Field>
-          <Field label="Language">
-            <Select value={settings.language} onChange={(e) => update({ language: e.target.value })}>
-              {LANGUAGES.map(([code, name]) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+        <Field label="Model" hint={INDIC.includes(lang) || lang === "auto" ? "For Indian languages pick a Large v3 model. Smaller or English-only models get them wrong." : undefined}>
+          <ModelPicker models={p.models} value={settings.sttModel} onChange={(v) => update({ sttModel: v })} />
+        </Field>
         <div className="border-t border-line pt-4">
           <TestButton kind="stt" />
         </div>
@@ -361,24 +375,13 @@ function LocalSection({ settings, update }: Pick<Props, "settings" | "update">) 
     <div className="flex flex-col gap-5">
       <section>
         <SectionTitle title="Model" description="Bigger models are more accurate but slower. You can switch any time." />
-        <LocalModelPicker value={settings.localModel} onChange={(id) => update({ localModel: id })} state={local} />
+        <LocalModelPicker value={settings.localModel} onChange={(id) => update({ localModel: id })} state={local} language={settings.language} />
       </section>
-      <Card className="flex flex-col gap-5 p-5">
-        <Field label="Language" hint="Picking your language is faster and more accurate than auto-detect.">
-          <Select value={settings.language} onChange={(e) => update({ language: e.target.value })}>
-            {LANGUAGES.map(([code, name]) => (
-              <option key={code} value={code}>
-                {name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {ready && (
-          <div className="border-t border-line pt-4">
-            <TestButton kind="stt" />
-          </div>
-        )}
-      </Card>
+      {ready && (
+        <Card className="p-5">
+          <TestButton kind="stt" />
+        </Card>
+      )}
     </div>
   );
 }
@@ -392,13 +395,85 @@ function Cleanup({ settings, update, refresh }: Props) {
     <div className="flex flex-col gap-8">
       {on && !configured && (
         <p className="flex items-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-[12.5px] text-fg-2">
-          <CircleAlert className="size-4 shrink-0 text-danger" /> No {p.name} key or endpoint is set below, so your text is pasted exactly as transcribed.
+          <CircleAlert className="size-4 shrink-0 text-warning" /> No {p.name} key or endpoint is set below, so only instant formatting applies. Add one for lists, emails,
+          prompts and role-aware polish.
         </p>
       )}
+      <section>
+        <SectionTitle title="Format for" description="How your words are laid out depends on where they're going." />
+        <div className="grid grid-cols-2 gap-2.5">
+          {FORMAT_MODES.map((m) => {
+            const active = (settings.formatMode || "auto") === m.value;
+            return (
+              <button
+                key={m.value}
+                onClick={() => update({ formatMode: m.value })}
+                className={cx(
+                  "rounded-xl border p-3.5 text-left transition-all",
+                  m.value === "auto" && "col-span-2",
+                  active ? "border-accent bg-accent-soft ring-4 ring-accent/10" : "border-line-strong bg-surface hover:border-fg-3/60"
+                )}
+              >
+                <div className="text-[13px] font-semibold">{m.label}</div>
+                <p className="mt-1 text-[12px] leading-snug text-fg-3">{m.hint}</p>
+              </button>
+            );
+          })}
+        </div>
+        <Card className="mt-3">
+          <Row
+            title="Look at the app I'm typing in"
+            description="Reads the name and window title of the app in front when you start dictating, to pick the format and spell names that appear there. The title is included in the AI polish request; nothing else on your screen is read."
+          >
+            <Switch checked={settings.useAppContext !== false} onChange={(v) => update({ useAppContext: v })} label="Look at the app I'm typing in" />
+          </Row>
+          <Row
+            title="Instant formatting"
+            description="Works offline with no key: “new line”, “new paragraph” and “bullet point”, drops um and uh, fixes file names (utils dot ts) and developer terms."
+          >
+            <Switch checked={settings.smartFormat !== false} onChange={(v) => update({ smartFormat: v })} label="Instant formatting" />
+          </Row>
+        </Card>
+      </section>
+
+      <section>
+        <SectionTitle title="Your role" description="Tells Vaakya which words to expect from you." />
+        <Card className="flex flex-col gap-5 p-5">
+          <div className="flex flex-wrap gap-1.5">
+            {ROLES.map((r) => {
+              const active = (settings.role || "general") === r.value;
+              return (
+                <button
+                  key={r.value}
+                  title={r.hint}
+                  onClick={() => update({ role: r.value })}
+                  className={cx(
+                    "h-8 rounded-full border px-3 text-[12.5px] font-medium transition-colors",
+                    active ? "border-accent bg-accent text-accent-ink" : "border-line-strong bg-surface text-fg-2 hover:border-fg-3 hover:text-fg"
+                  )}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+          <Field label="About you (optional)" hint="Names, companies and terms you say often. Used only to spell them right. For exact replacements, use the Dictionary.">
+            <textarea
+              defaultValue={settings.aboutYou}
+              onBlur={(e) => update({ aboutYou: e.target.value.trim() })}
+              rows={2}
+              maxLength={400}
+              placeholder="e.g. Backend engineer at Zentric in Hyderabad. I work with Adithya and Sravani on the payments API."
+              className="w-full resize-none rounded-[10px] border border-line-strong bg-surface px-3 py-2 text-[13px] leading-relaxed text-fg shadow-sm outline-none transition placeholder:text-fg-3 focus:border-accent focus:ring-4 focus:ring-accent/15"
+            />
+          </Field>
+        </Card>
+      </section>
+
       <Card>
         <Row
           title="Polish with AI"
-          description="Removes filler words, fixes punctuation, applies self-corrections and formats lists — without changing what you meant."
+          description="Removes filler words, fixes punctuation, applies self-corrections, builds lists, paragraphs and emails, and uses your role and the app you're in. Works in all five languages without translating."
         >
           <Switch checked={on} onChange={(v) => update({ cleanupEnabled: v })} label="Polish with AI" />
         </Row>
@@ -416,7 +491,7 @@ function Cleanup({ settings, update, refresh }: Props) {
                   onClick={() => update({ tone: t.value })}
                   className={cx(
                     "rounded-xl border p-4 text-left transition-all",
-                    active ? "border-accent bg-accent-soft/60 ring-4 ring-accent/10" : "border-line-strong bg-surface hover:border-fg-3/40"
+                    active ? "border-accent bg-accent-soft ring-4 ring-accent/10" : "border-line-strong bg-surface hover:border-fg-3/60"
                   )}
                 >
                   <div className="text-[13px] font-semibold">{t.label}</div>
@@ -514,16 +589,16 @@ function Appearance({ settings, update }: Props) {
 
 function ThemePreview({ mode }: { mode: Theme }) {
   const pane = (dark: boolean) => (
-    <div className={cx("flex h-full flex-1", dark ? "bg-[#0d0d11]" : "bg-[#f7f7f5]")}>
-      <div className={cx("w-1/4 border-r p-1.5", dark ? "border-white/5 bg-[#0a0a0d]" : "border-black/5 bg-[#f0f0ed]")}>
-        <div className="mb-1.5 size-2.5 rounded brand-gradient" />
+    <div className={cx("flex h-full flex-1", dark ? "bg-[#071c1f]" : "bg-[#f7f9f8]")}>
+      <div className={cx("w-1/4 border-r p-1.5", dark ? "border-white/5 bg-[#05171a]" : "border-black/5 bg-[#eef3f1]")}>
+        <div className={cx("mb-1.5 size-2.5 rounded", dark ? "bg-[#9fd6cf]" : "bg-[#06525c]")} />
         {[0, 1, 2].map((i) => (
           <div key={i} className={cx("mb-1 h-1 rounded-full", dark ? "bg-white/15" : "bg-black/10")} />
         ))}
       </div>
       <div className="flex-1 p-2">
-        <div className="mb-1.5 h-5 rounded bg-[#121218]" />
-        <div className={cx("h-3 rounded", dark ? "bg-[#15151b]" : "bg-white shadow-sm")} />
+        <div className={cx("mb-1.5 h-5 rounded", dark ? "bg-[#0d2b2f]" : "bg-[#06525c]")} />
+        <div className={cx("h-3 rounded", dark ? "bg-[#0d2b2f]" : "bg-white shadow-sm")} />
       </div>
     </div>
   );
@@ -544,14 +619,14 @@ function ThemePreview({ mode }: { mode: Theme }) {
 function About({ settings }: { settings: Settings }) {
   const [info, setInfo] = useState<{ version: string } | null>(null);
   useEffect(() => {
-    wispr.appInfo().then(setInfo);
+    bridge.appInfo().then(setInfo);
   }, []);
   return (
     <div className="flex flex-col gap-6">
       <Card className="flex items-center gap-4 p-5">
         <Logo size={48} />
         <div>
-          <div className="text-[15px] font-semibold">WisprFlow</div>
+          <div className="text-[15px] font-semibold">Vaakya</div>
           <div className="text-[12.5px] text-fg-3">
             Version {info?.version ?? "—"} · built{" "}
             {new Date(__BUILD_TIME__).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
@@ -568,7 +643,7 @@ function About({ settings }: { settings: Settings }) {
           </Row>
         )}
         <Row title="Inspired by OpenWhispr" description="Open-source, MIT licensed.">
-          <Button size="sm" variant="ghost" onClick={() => wispr.openExternal("https://github.com/OpenWhispr/openwhispr")}>
+          <Button size="sm" variant="ghost" onClick={() => bridge.openExternal("https://github.com/OpenWhispr/openwhispr")}>
             GitHub <ExternalLink className="size-3.5" />
           </Button>
         </Row>

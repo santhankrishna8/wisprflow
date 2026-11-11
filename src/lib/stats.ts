@@ -1,4 +1,4 @@
-import type { HistoryEntry } from "./wispr";
+import type { HistoryEntry } from "./bridge";
 
 const TYPING_WPM = 40;
 

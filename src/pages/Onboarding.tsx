@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Keyboard, Lock, Mic, MousePointerClick, PartyPopper, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Keyboard, Languages, Lock, Mic, MousePointerClick, PartyPopper, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, Field, HotkeyRecorder, Input, KeyInput, Logo, Hotkey, cx } from "../components/ui";
 import { STT_PROVIDERS } from "../lib/providers";
-import { isMac, wispr } from "../lib/wispr";
-import type { DictationState, Settings, SttProvider } from "../lib/wispr";
+import { LanguagePicker } from "../components/LanguagePicker";
+import { isMac, bridge } from "../lib/bridge";
+import type { DictationState, Settings, SttProvider } from "../lib/bridge";
 import { ProviderCards, KeyLink, TestButton } from "./Settings";
 import { LocalModelPicker, useLocalModels } from "../components/LocalModels";
 
@@ -38,7 +39,7 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
       <div className="drag flex min-w-0 flex-1 flex-col">
         <div className={cx("flex items-center gap-2.5 px-10", isMac ? "pt-12" : "pt-7")}>
           <Logo size={24} />
-          <span className="text-[14px] font-semibold tracking-tight">WisprFlow</span>
+          <span className="text-[14px] font-semibold tracking-tight">Vaakya</span>
         </div>
 
         <div className="no-drag scroll flex min-h-0 flex-1 flex-col px-10">
@@ -68,7 +69,7 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
             )}
             {step === "try" ? (
               <Button variant="brand" size="lg" onClick={finish}>
-                Start using WisprFlow <ArrowRight className="size-4" />
+                Start using Vaakya <ArrowRight className="size-4" />
               </Button>
             ) : (
               <Button
@@ -102,7 +103,8 @@ function Heading({ eyebrow, title, children }: { eyebrow?: string; title: ReactN
 function Welcome() {
   const points = [
     { icon: <MousePointerClick className="size-4" />, title: "Works everywhere", text: "Email, Slack, docs, your IDE — anywhere there's a cursor." },
-    { icon: <Sparkles className="size-4" />, title: "Polished as you speak", text: "Filler words gone, punctuation fixed, self-corrections applied." },
+    { icon: <Sparkles className="size-4" />, title: "Formatted for where it lands", text: "Emails, messages, lists, code terms and AI prompts, each laid out the right way." },
+    { icon: <Languages className="size-4" />, title: "Speaks your language", text: "English, हिन्दी, తెలుగు, தமிழ் and ಕನ್ನಡ, with English words mixed in." },
     { icon: <Lock className="size-4" />, title: "Private by design", text: "Your keys, your provider. History stays on this device." },
   ];
   return (
@@ -144,17 +146,17 @@ function Permissions() {
   const [mic, setMic] = useState(false);
   const [acc, setAcc] = useState(!isMac);
   useEffect(() => {
-    wispr.getPermissions().then((p) => {
+    bridge.getPermissions().then((p) => {
       setMic(p.microphone === "granted");
       setAcc(p.accessibility);
     });
     if (!isMac) return;
-    const t = setInterval(() => wispr.getPermissions().then((p) => setAcc(p.accessibility)), 1500);
+    const t = setInterval(() => bridge.getPermissions().then((p) => setAcc(p.accessibility)), 1500);
     return () => clearInterval(t);
   }, []);
   const askMic = async () => {
     try {
-      await wispr.requestMic();
+      await bridge.requestMic();
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       s.getTracks().forEach((t) => t.stop());
       setMic(true);
@@ -165,7 +167,7 @@ function Permissions() {
   return (
     <>
       <Heading eyebrow="Step 1 of 4" title="A couple of permissions">
-        WisprFlow only listens while you hold the floor — never in the background.
+        Vaakya only listens while you hold the floor — never in the background.
       </Heading>
       <div className="flex flex-col gap-3">
         <PermissionCard
@@ -186,7 +188,7 @@ function Permissions() {
             text="To paste text into the app you're using."
             granted={acc}
             action={
-              <Button size="sm" variant="primary" onClick={() => wispr.openAccessibility()}>
+              <Button size="sm" variant="primary" onClick={() => bridge.openAccessibility()}>
                 Open Settings
               </Button>
             }
@@ -201,9 +203,12 @@ function Provider({ settings, update, refresh, local }: Omit<Props, "state"> & {
   const p = STT_PROVIDERS[settings.sttProvider];
   return (
     <>
-      <Heading eyebrow="Step 2 of 4" title="Connect a transcription engine">
-        Run it privately on this PC for free, or bring a key for a cloud provider.
+      <Heading eyebrow="Step 2 of 4" title="Your language and engine">
+        Pick the language you'll speak, then run transcription privately on this PC for free or bring a key for a cloud provider.
       </Heading>
+      <div className="mb-5">
+        <LanguagePicker compact value={settings.language} onChange={(code) => update({ language: code })} />
+      </div>
       <ProviderCards
         value={settings.sttProvider}
         onChange={(v: SttProvider) =>
@@ -219,7 +224,7 @@ function Provider({ settings, update, refresh, local }: Omit<Props, "state"> & {
       />
       {settings.sttProvider === "local" ? (
         <div className="mt-5">
-          <LocalModelPicker value={settings.localModel} onChange={(id) => update({ localModel: id })} state={local} />
+          <LocalModelPicker value={settings.localModel} onChange={(id) => update({ localModel: id })} state={local} language={settings.language} />
         </div>
       ) : (
       <div className="mt-5 flex flex-col gap-4">
@@ -267,7 +272,7 @@ function HotkeyStep({ settings }: { settings: Settings }) {
         <HotkeyRecorder
           value={settings.hotkey}
           onSave={async (accel) => {
-            const r = await wispr.setHotkey(accel);
+            const r = await bridge.setHotkey(accel);
             return r.ok ? null : r.error || "Couldn't register shortcut";
           }}
         />
@@ -281,7 +286,7 @@ function TryIt({ settings, state }: { settings: Settings; state: DictationState 
   const [success, setSuccess] = useState(false);
   useEffect(() => {
     ref.current?.focus();
-    return wispr.onHistoryAdded(() => setSuccess(true));
+    return bridge.onHistoryAdded(() => setSuccess(true));
   }, []);
   const recording = state.status === "recording";
   return (
@@ -312,7 +317,7 @@ function TryIt({ settings, state }: { settings: Settings; state: DictationState 
           <span className="flex items-center gap-2">
             {recording ? (
               <>
-                <span className="size-1.5 animate-pulse rounded-full bg-[#ff5c8a]" /> Listening…
+                <span className="size-1.5 animate-pulse rounded-full bg-accent" /> Listening…
               </>
             ) : state.status === "processing" ? (
               <span className="shimmer-text font-medium">Polishing your words…</span>
@@ -324,7 +329,7 @@ function TryIt({ settings, state }: { settings: Settings; state: DictationState 
               "Waiting for you to speak"
             )}
           </span>
-          <button onClick={() => wispr.toggleDictation()} className="font-medium text-accent-text hover:underline">
+          <button onClick={() => bridge.toggleDictation()} className="font-medium text-accent-text hover:underline">
             {recording ? "Stop" : "Or click to start"}
           </button>
         </div>
@@ -338,45 +343,44 @@ function Showcase({ step, hotkey }: { step: Step; hotkey: string }) {
   const lines: Record<Step, { raw: string; clean: string }> = {
     welcome: { raw: "so um I think we should uh ship it on friday", clean: "I think we should ship it on Friday." },
     permissions: { raw: "remind me to call mom at 6 no wait 7", clean: "Remind me to call Mom at 7." },
-    provider: { raw: "the api returns a four oh four for missing users", clean: "The API returns a 404 for missing users." },
+    provider: { raw: "నేను రేపు ఉదయం meeting కి వస్తాను okay na", clean: "నేను రేపు ఉదయం meeting కి వస్తాను, okay నా?" },
     hotkey: { raw: "groceries eggs milk and uh coffee beans", clean: "Groceries:\n• Eggs\n• Milk\n• Coffee beans" },
     try: { raw: "thanks so much this is like super helpful", clean: "Thanks so much — this is super helpful!" },
   };
   const l = lines[step];
   return (
-    <div className="drag relative hidden w-[44%] max-w-[560px] shrink-0 overflow-hidden bg-[#0e0e13] lg:block">
-      <div className="absolute -top-20 -right-20 size-[420px] rounded-full bg-[#6d4dff] opacity-40 blur-[110px]" />
-      <div className="absolute -bottom-24 -left-10 size-[360px] rounded-full bg-[#ff5c8a] opacity-25 blur-[110px]" />
+    <div className="drag relative hidden w-[44%] max-w-[560px] shrink-0 overflow-hidden bg-[#06525c] lg:block dark:bg-[#0d2b2f]">
+      <div className="absolute -top-20 -right-20 size-[420px] rounded-full bg-[#9fd6cf] opacity-20 blur-[110px]" />
       <div
         className="absolute inset-0 opacity-[0.06]"
         style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.9) 1px, transparent 1px)", backgroundSize: "20px 20px" }}
       />
       <div className="relative flex h-full flex-col items-center justify-center px-10">
         <div key={step} className="animate-fade-up w-full max-w-[360px]">
-          <div className="mb-3 text-[11px] font-semibold tracking-wider text-white/40 uppercase">You say</div>
-          <p className="text-[15px] leading-relaxed text-white/50 italic">“{l.raw}”</p>
+          <div className="mb-3 text-[11px] font-semibold tracking-wider text-white/65 uppercase">You say</div>
+          <p className="text-[15px] leading-relaxed text-white/75 italic">“{l.raw}”</p>
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            <Sparkles className="size-4 text-[#a996ff]" />
+            <Sparkles className="size-4 text-[#9fd6cf]" />
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </div>
-          <div className="mb-3 text-[11px] font-semibold tracking-wider text-white/40 uppercase">WisprFlow types</div>
+          <div className="mb-3 text-[11px] font-semibold tracking-wider text-white/65 uppercase">Vaakya types</div>
           <div className="rounded-2xl bg-white/[0.06] p-4 text-[15px] leading-relaxed whitespace-pre-line text-white ring-1 ring-white/10 backdrop-blur">
             {l.clean}
-            <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-[#a996ff]" />
+            <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-[#9fd6cf]" />
           </div>
         </div>
 
         {/* Mini pill preview */}
-        <div className="absolute bottom-10 flex items-center gap-3 rounded-full bg-[#1b1b22]/90 py-2 pr-4 pl-2 shadow-2xl ring-1 ring-white/10">
-          <span className="flex size-7 items-center justify-center rounded-full bg-[#ff5c8a]">
-            <Mic className="size-3.5 text-white" />
+        <div className="absolute bottom-10 flex items-center gap-3 rounded-full bg-[#0d2b2f] py-2 pr-4 pl-2 shadow-2xl ring-1 ring-white/10">
+          <span className="flex size-7 items-center justify-center rounded-full bg-[#f7f9f8]">
+            <Mic className="size-3.5 text-[#06525c]" />
           </span>
           <span className="flex h-5 items-center gap-[3px]">
             {Array.from({ length: 14 }).map((_, i) => (
               <span
                 key={i}
-                className="w-[3px] rounded-full bg-white/80"
+                className="w-[3px] rounded-full bg-[#9fd6cf]"
                 style={{ height: `${30 + ((i * 37) % 70)}%`, animation: `bar ${0.7 + (i % 4) * 0.15}s ease-in-out ${i * 0.06}s infinite` }}
               />
             ))}

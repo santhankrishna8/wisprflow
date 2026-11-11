@@ -1,27 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import { wispr } from "./wispr";
-import type { DictationState, HistoryEntry, Settings } from "./wispr";
+import { bridge } from "./bridge";
+import type { DictationState, HistoryEntry, Settings } from "./bridge";
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
   useEffect(() => {
-    wispr.getSettings().then(setSettings);
-    return wispr.onSettings(setSettings);
+    bridge.getSettings().then(setSettings);
+    return bridge.onSettings(setSettings);
   }, []);
   const update = useCallback(async (patch: Partial<Settings>) => {
     setSettings((s) => (s ? { ...s, ...patch } : s));
-    setSettings(await wispr.setSettings(patch));
+    setSettings(await bridge.setSettings(patch));
   }, []);
-  const refresh = useCallback(() => wispr.getSettings().then(setSettings), []);
+  const refresh = useCallback(() => bridge.getSettings().then(setSettings), []);
   return { settings, update, refresh };
 }
 
 export function useHistory() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   useEffect(() => {
-    wispr.getHistory().then((h) => setHistory([...h]));
-    const offAdded = wispr.onHistoryAdded((e) => setHistory((h) => [e, ...h.filter((x) => x.id !== e.id)]));
-    const offReplaced = wispr.onHistoryReplaced((list) => setHistory([...list]));
+    bridge.getHistory().then((h) => setHistory([...h]));
+    const offAdded = bridge.onHistoryAdded((e) => setHistory((h) => [e, ...h.filter((x) => x.id !== e.id)]));
+    const offReplaced = bridge.onHistoryReplaced((list) => setHistory([...list]));
     return () => {
       offAdded();
       offReplaced();
@@ -29,11 +29,11 @@ export function useHistory() {
   }, []);
   const remove = useCallback(async (id: string) => {
     setHistory((h) => h.filter((x) => x.id !== id));
-    await wispr.deleteHistory(id);
+    await bridge.deleteHistory(id);
   }, []);
   const clear = useCallback(async () => {
     setHistory([]);
-    await wispr.clearHistory();
+    await bridge.clearHistory();
   }, []);
   return { history, remove, clear };
 }
@@ -41,8 +41,8 @@ export function useHistory() {
 export function useDictationState() {
   const [state, setState] = useState<DictationState>({ status: "idle", message: "" });
   useEffect(() => {
-    wispr.getState().then(setState);
-    return wispr.onState(setState);
+    bridge.getState().then(setState);
+    return bridge.onState(setState);
   }, []);
   return state;
 }

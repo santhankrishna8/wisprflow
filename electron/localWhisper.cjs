@@ -13,10 +13,11 @@ const { spawn } = require("node:child_process");
 
 const HF = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
 const MODELS = [
-  { id: "tiny", name: "Tiny", file: "ggml-tiny.bin", bytes: 78_000_000, size: "75 MB", blurb: "Fastest. Fine for short, clear notes." },
-  { id: "base", name: "Base", file: "ggml-base.bin", bytes: 148_000_000, size: "142 MB", blurb: "Quick and accurate enough for most dictation.", recommended: true },
-  { id: "small", name: "Small", file: "ggml-small.bin", bytes: 488_000_000, size: "466 MB", blurb: "Noticeably more accurate. Great on modern CPUs." },
-  { id: "turbo-q5", name: "Large v3 Turbo", file: "ggml-large-v3-turbo-q5_0.bin", bytes: 574_041_195, size: "574 MB", blurb: "Near-best accuracy. Slower without a strong CPU." },
+  { id: "tiny", name: "Tiny", file: "ggml-tiny.bin", bytes: 78_000_000, size: "75 MB", blurb: "Fastest. Short, clear English notes only.", english: true },
+  { id: "base", name: "Base", file: "ggml-base.bin", bytes: 148_000_000, size: "142 MB", blurb: "Quick and accurate enough for everyday English.", recommended: true, english: true },
+  { id: "small", name: "Small", file: "ggml-small.bin", bytes: 488_000_000, size: "466 MB", blurb: "More accurate English, usable Hindi. Great on modern CPUs." },
+  { id: "turbo-q5", name: "Large v3 Turbo", file: "ggml-large-v3-turbo-q5_0.bin", bytes: 574_041_195, size: "574 MB", blurb: "Best balance for Hindi, Telugu, Tamil and Kannada.", indic: true },
+  { id: "large-q5", name: "Large v3", file: "ggml-large-v3-q5_0.bin", bytes: 1_081_140_203, size: "1.08 GB", blurb: "Most accurate for Indian languages, but slow without a fast CPU." },
 ];
 
 const IDLE_MS = 10 * 60 * 1000;
@@ -24,6 +25,9 @@ const STARTUP_TIMEOUT_MS = 60_000;
 // Anti-hallucination thresholds (from OpenWhispr, measured over thousands of
 // dictations): stop near-silent windows from emitting "Thank you for watching".
 const DECODER_FIELDS = { entropy_thold: "2.8", logprob_thold: "-1.25" };
+
+const WHISPER_NAMES = { en: "english", hi: "hindi", te: "telugu", ta: "tamil", kn: "kannada" };
+const whisperName = (code) => WHISPER_NAMES[code] || code;
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -88,6 +92,8 @@ function createLocalWhisper(o) {
       size: m.size,
       blurb: m.blurb,
       recommended: Boolean(m.recommended),
+      english: Boolean(m.english),
+      indic: Boolean(m.indic),
       downloaded: isDownloaded(m),
       downloading: downloads.has(m.id),
     }));
@@ -244,24 +250,54 @@ function createLocalWhisper(o) {
     return current.ready;
   }
 
-  async function transcribe({ wav, modelId, language, prompt, signal }) {
-    const port = await ensureServer(modelId);
+  async function infer(port, { wav, language, prompt, signal, verbose }) {
     const form = new FormData();
     form.append("file", new Blob([wav], { type: "audio/wav" }), "audio.wav");
-    form.append("response_format", "json");
+    form.append("response_format", verbose ? "verbose_json" : "json");
     form.append("temperature", "0.0");
     form.append("language", language && language !== "auto" ? language : "auto");
     for (const [k, v] of Object.entries(DECODER_FIELDS)) form.append(k, v);
     if (prompt) form.append("prompt", prompt);
+    const res = await fetch(`http://127.0.0.1:${port}/inference`, { method: "POST", body: form, signal });
+    if (!res.ok) throw new Error(`Local transcription failed (${res.status}).`);
+    const json = await res.json();
+    if (json.error) throw new Error(`Local transcription failed: ${json.error}`);
+    return json;
+  }
+
+  const tidy = (text) =>
+    String(text || "")
+      .replace(/\[(BLANK_AUDIO|MUSIC|NOISE|SILENCE)\]/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  /**
+   * @param {object} a
+   * @param {string} a.language  a language code, or "auto"
+   * @param {string[]} [a.allowed]  with "auto": the only languages the speaker uses. Whisper
+   *   detects among ~100 languages and small models often mistake Telugu or Kannada for
+   *   something else entirely; when that happens we re-run with the likeliest allowed one.
+   * @param {(language: string) => string} [a.promptFor]  initial prompt for a given language
+   * @returns {Promise<{text: string, language: string}>}
+   */
+  async function transcribe({ wav, modelId, language, allowed, promptFor, prompt, signal }) {
+    const port = await ensureServer(modelId);
+    const auto = !language || language === "auto";
+    const promptOf = (l) => (promptFor ? promptFor(l) : prompt || "");
     try {
-      const res = await fetch(`http://127.0.0.1:${port}/inference`, { method: "POST", body: form, signal });
-      if (!res.ok) throw new Error(`Local transcription failed (${res.status}).`);
-      const json = await res.json();
-      if (json.error) throw new Error(`Local transcription failed: ${json.error}`);
-      return String(json.text || "")
-        .replace(/\[(BLANK_AUDIO|MUSIC|NOISE|SILENCE)\]/gi, "")
-        .replace(/\s+/g, " ")
-        .trim();
+      if (!auto || !allowed?.length) {
+        const json = await infer(port, { wav, language, prompt: promptOf(language), signal });
+        return { text: tidy(json.text), language: auto ? "auto" : language };
+      }
+      const first = await infer(port, { wav, language: "auto", prompt: promptOf("auto"), signal, verbose: true });
+      const detected = String(first.detected_language || first.language || "").toLowerCase();
+      const hit = allowed.find((c) => c === detected || whisperName(c) === detected);
+      if (hit) return { text: tidy(first.text), language: hit };
+      // Not one of the speaker's languages: pick the likeliest of theirs and transcribe again.
+      const probs = first.language_probabilities || {};
+      const best = allowed.reduce((a, c) => ((probs[c] ?? -1) > (probs[a] ?? -1) ? c : a), allowed[0]);
+      const second = await infer(port, { wav, language: best, prompt: promptOf(best), signal });
+      return { text: tidy(second.text), language: best };
     } finally {
       armIdle();
     }

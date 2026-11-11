@@ -42,9 +42,15 @@ jobs:
       - run: npm run dist:win
       - name: Smoke-test on-device transcription in the packaged app
         run: node scripts/smoke-local-whisper.cjs release/win-unpacked/resources/whisper
+      - name: Report installer size
+        shell: pwsh
+        run: |
+          $mb = [math]::Round((Get-Item release/Vaakya-Setup.exe).Length / 1MB, 1)
+          "Installer size: $mb MB"
+          "### Vaakya-Setup.exe: $mb MB" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
       - uses: actions/upload-artifact@v4
         with:
-          name: WisprFlow-Windows-installer
+          name: Vaakya-Windows-installer
           path: release/*.exe
       - name: Publish GitHub release
         if: env.RAW_VERSION != ''
@@ -52,12 +58,12 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          name: WisprFlow ${{ env.VERSION }}
-          files: release/WisprFlow-Setup.exe
+          name: Vaakya ${{ env.VERSION }}
+          files: release/Vaakya-Setup.exe
           generate_release_notes: true
           make_latest: true
           body: |
             ## Install
-            1. Download **WisprFlow-Setup.exe** below.
+            1. Download **Vaakya-Setup.exe** below.
             2. If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed yet).
             3. In setup, choose **On this PC** and download the **Base** model to dictate offline for free.

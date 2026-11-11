@@ -2,7 +2,7 @@ import { createContext, forwardRef, useCallback, useContext, useEffect, useRef, 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import { Check, ChevronDown, CircleAlert, Eye, EyeOff, Info, Loader2 } from "lucide-react";
 import { acceleratorKeys, eventToAccelerator } from "../lib/hotkey";
-import { wispr } from "../lib/wispr";
+import { bridge } from "../lib/bridge";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -12,15 +12,8 @@ export function cx(...parts: Array<string | false | null | undefined>) {
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-      <defs>
-        <linearGradient id="wf-g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#6d4dff" />
-          <stop offset="0.55" stopColor="#a24bff" />
-          <stop offset="1" stopColor="#ff5c8a" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="9" fill="url(#wf-g)" />
-      <g fill="#fff">
+      <rect width="32" height="32" rx="9" fill="#06525c" />
+      <g fill="#f7f9f8">
         <rect x="7" y="13" width="2.6" height="6" rx="1.3" opacity="0.85" />
         <rect x="11.3" y="9.5" width="2.6" height="13" rx="1.3" />
         <rect x="15.6" y="6.5" width="2.6" height="19" rx="1.3" />
@@ -36,7 +29,7 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "brand";
 type Size = "sm" | "md" | "lg";
 const variants: Record<Variant, string> = {
   primary: "bg-fg text-bg hover:opacity-90 shadow-sm",
-  brand: "brand-gradient text-white shadow-md hover:brightness-110",
+  brand: "bg-accent text-accent-ink shadow-md hover:opacity-90",
   secondary: "bg-surface text-fg border border-line-strong hover:bg-surface-2 shadow-sm",
   ghost: "text-fg-2 hover:text-fg hover:bg-surface-3/70",
   danger: "text-danger hover:bg-danger/10",
@@ -220,7 +213,7 @@ export function KeyInput({
             size="sm"
             variant="danger"
             onClick={async () => {
-              await wispr.setKey(provider, "");
+              await bridge.setKey(provider, "");
               toast("API key removed");
               onSaved?.();
             }}
@@ -233,7 +226,7 @@ export function KeyInput({
   }
   const save = async () => {
     if (!value.trim()) return;
-    await wispr.setKey(provider, value.trim());
+    await bridge.setKey(provider, value.trim());
     setValue("");
     toast("API key saved securely", "success");
     onSaved?.();
@@ -341,7 +334,7 @@ export function HotkeyRecorder({ value, onSave }: { value: string; onSave: (acce
 
   useEffect(() => {
     if (!recording) return;
-    wispr.suspendHotkey(true);
+    bridge.suspendHotkey(true);
     const onKey = async (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -357,7 +350,7 @@ export function HotkeyRecorder({ value, onSave }: { value: string; onSave: (acce
     window.addEventListener("keydown", onKey, true);
     return () => {
       window.removeEventListener("keydown", onKey, true);
-      wispr.suspendHotkey(false);
+      bridge.suspendHotkey(false);
     };
   }, [recording, onSave]);
 
@@ -435,10 +428,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {items.map((t) => (
           <div
             key={t.id}
-            className="animate-fade-up flex items-center gap-2 rounded-xl bg-[#18181d] px-3.5 py-2.5 text-[13px] font-medium text-white shadow-lg ring-1 ring-white/10 dark:bg-[#2a2a33]"
+            className="animate-fade-up flex items-center gap-2 rounded-xl bg-[#0d2b2f] px-3.5 py-2.5 text-[13px] font-medium text-white shadow-lg ring-1 ring-white/10 dark:bg-[#1a444a]"
           >
-            {t.tone === "success" && <Check className="size-4 text-[#3dd68c]" strokeWidth={2.5} />}
-            {t.tone === "error" && <CircleAlert className="size-4 text-[#ff6369]" />}
+            {t.tone === "success" && <Check className="size-4 text-[#9fd6cf]" strokeWidth={2.5} />}
+            {t.tone === "error" && <CircleAlert className="size-4 text-[#ff8f8a]" />}
             {t.tone === "neutral" && <Info className="size-4 text-white/60" />}
             {t.message}
           </div>
