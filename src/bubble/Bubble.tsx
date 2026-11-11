@@ -92,14 +92,19 @@ export default function Bubble() {
         onClick={() => bridge.setBubbleCollapsed(false)}
         className={cx("group flex h-screen w-screen items-center", right ? "justify-end" : "justify-start")}
       >
+        {/* Flush with the screen edge. The outline keeps it visible on dark and light apps alike. */}
         <span
           className={cx(
-            "h-16 w-[7px] transition-[width,background] duration-150 group-hover:w-[11px]",
+            "flex h-[88px] w-[13px] flex-col items-center justify-center gap-[5px] transition-[width] duration-150 group-hover:w-[17px]",
             right ? "rounded-l-full" : "rounded-r-full",
-            recording ? "bg-[#9fd6cf]" : "bg-[#0d2b2f] shadow-[0_0_0_1px_rgba(159,214,207,0.45)_inset]",
+            "bg-[#0d2b2f] shadow-[0_0_0_1.5px_#9fd6cf,0_0_0_3px_rgba(255,255,255,0.35),0_2px_10px_rgba(0,0,0,0.5)]",
             recording && "animate-pulse"
           )}
-        />
+        >
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="h-[10px] w-[2px] rounded-full bg-[#9fd6cf]" />
+          ))}
+        </span>
       </button>
     );
   }

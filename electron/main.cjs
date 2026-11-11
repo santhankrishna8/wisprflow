@@ -162,7 +162,7 @@ function createOverlayWindow() {
 // A slim vertical pill at the screen edge. Its close button doesn't remove it:
 // it tucks the pill into the edge as a small tab that brings it back on click.
 const BUBBLE = { width: 52, height: 150 };
-const BUBBLE_TAB = { width: 14, height: 84 };
+const BUBBLE_TAB = { width: 24, height: 104 };
 const EDGE_MARGIN = 0;
 
 function defaultBubblePosition() {
@@ -241,7 +241,12 @@ function createBubbleWindow() {
   bubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   load(bubbleWindow, "bubble.html");
   bubbleWindow.once("ready-to-show", () => {
-    if (store.raw().showBubble && store.raw().onboarded) bubbleWindow.showInactive();
+    if (store.raw().showBubble && store.raw().onboarded) {
+      applyBubbleLayout(); // Windows can ignore the size given at creation: set it again once shown
+      bubbleWindow.showInactive();
+      bubbleWindow.setAlwaysOnTop(true, "screen-saver");
+      applyBubbleLayout();
+    }
   });
   bubbleWindow.on("closed", () => (bubbleWindow = null));
 }
