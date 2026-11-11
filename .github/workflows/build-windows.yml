@@ -51,7 +51,7 @@ jobs:
       - name: Smoke-test pasting into Notepad (real Electron clipboard)
         shell: pwsh
         run: |
-          $electron = node -e "console.log(require('electron'))"
+          $electron = [string](node -e "console.log(require('electron'))" | Select-Object -Last 1)
           "Electron: $electron"
           $p = Start-Process -FilePath $electron -ArgumentList "scripts/smoke-paste.cjs" -Wait -PassThru
           Get-Content paste-smoke.log
