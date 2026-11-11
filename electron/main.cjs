@@ -439,12 +439,12 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
       try {
         await pasteText(clipboard, text, { restore: settings.restoreClipboard, target: win });
       } catch (err) {
-        clipboard.writeText(text);
+        await clipboard.writeText(text);
         message = /blocked/.test(err.message) ? "Windows blocked the paste — press Ctrl+V" : "Couldn't paste — press Ctrl+V";
         notify("Copied to clipboard", err.message);
       }
     } else {
-      clipboard.writeText(text);
+      await clipboard.writeText(text);
     }
     if (cleanupError && message === "Pasted") message = "Pasted without AI polish";
     setState("done", message);

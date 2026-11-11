@@ -26,8 +26,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function main() {
   await app.whenReady();
   console.log("Electron", process.versions.electron, "clipboard API:", Object.keys(clipboard).join(","));
-  clipboard.writeText("what the user had copied");
-  const saved = snapshot(clipboard); // must not throw on any platform
+  await clipboard.writeText("what the user had copied");
+  const saved = await snapshot(clipboard); // must not throw on any platform
   if (process.platform !== "win32") return console.log("Not Windows: clipboard save ran without error, paste skipped.", JSON.stringify(saved));
   if (saved?.text !== "what the user had copied") throw new Error("Could not read the clipboard back.");
   if (!win32.available()) throw new Error(`Native input failed to load: ${win32.loadError()?.message}`);
@@ -71,7 +71,7 @@ async function main() {
     console.log(`Notepad contains: ${JSON.stringify(got)}`);
     if (!got.includes(TEXT)) throw new Error("The text did not arrive in Notepad.");
     await sleep(1800);
-    if (clipboard.readText() !== "what the user had copied") throw new Error("The previous clipboard text was not restored.");
+    if ((await clipboard.readText()) !== "what the user had copied") throw new Error("The previous clipboard text was not restored.");
     console.log("Paste smoke test passed (and the old clipboard came back).");
   } finally {
     stopPasteHelper();

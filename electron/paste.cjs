@@ -144,15 +144,17 @@ async function legacyPaste() {
   );
 }
 
+// Electron 45's clipboard is asynchronous and text-only: readText() and writeText()
+// return promises (readHTML, readRTF and readImage are gone). Everything here awaits
+// them, and also works with a synchronous clipboard.
+
 /**
  * Remember the text you had copied, so it can be put back after pasting.
- * Electron 45's clipboard only has readText/writeText (readHTML, readRTF and readImage
- * are gone); calling them threw and stopped every paste before Ctrl+V was pressed.
- * This must never throw: failing to save the old clipboard is no reason not to paste.
+ * Never throws: failing to save the old clipboard is no reason not to paste.
  */
-function snapshot(clipboard) {
+async function snapshot(clipboard) {
   try {
-    const text = clipboard.readText();
+    const text = await clipboard.readText();
     return typeof text === "string" && text ? { text } : null;
   } catch {
     return null;
@@ -160,21 +162,25 @@ function snapshot(clipboard) {
 }
 
 /** Put the remembered text back, unless the clipboard changed again in the meantime. */
-function restoreSnapshot(clipboard, previous, pasted) {
+async function restoreSnapshot(clipboard, previous, pasted) {
   try {
-    if (previous && clipboard.readText() === pasted) clipboard.writeText(previous.text);
+    if (previous && (await clipboard.readText()) === pasted) await clipboard.writeText(previous.text);
   } catch {
     /* leave the dictated text on the clipboard */
   }
 }
 
+/**
+ * @param {{restore?: boolean, target?: object|null}} [opts]  target: the window dictation started in
+ */
 async function pasteText(clipboard, text, { restore = true, target = null } = {}) {
-  const previous = restore ? snapshot(clipboard) : null;
-  clipboard.writeText(text);
-  await new Promise((r) => setTimeout(r, 60));
+  const previous = restore ? await snapshot(clipboard) : null;
+  await clipboard.writeText(text); // must have landed before Ctrl+V is pressed
+  await sleep(60);
   await simulatePaste(target);
   if (restore && previous) {
-    setTimeout(() => restoreSnapshot(clipboard, previous, text), 1500).unref?.(); // some apps read the clipboard a moment after Ctrl+V
+    // Some apps read the clipboard a moment after Ctrl+V.
+    setTimeout(() => restoreSnapshot(clipboard, previous, text), 1500).unref?.();
   }
 }
 
