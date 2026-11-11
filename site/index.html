@@ -86,6 +86,10 @@
   }
   @media (max-width: 400px) { .closing .btn--xl { white-space: normal; text-align: center; min-width: 0; padding-inline: 16px; } }
   @media (max-width: 639px) { #cleanup .panel { --p-h: 180px; } }
+  .d-note__line { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; line-height: 1.35; color: #3c4146; }
+  .d-note__line b { color: #16181a; font-weight: 600; }
+  .d-note__line i { display: grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; font: 700 11px/1 var(--font-text); font-style: normal; background: #e7f4ec; color: #17673f; }
+  .d-note__line i.warn { background: #fdf0dc; color: #8a5300; }
   .faq-steps { aspect-ratio: 4 / 3; }
   .pill-scene { position: relative; height: 340px; margin-top: var(--s-7); background: var(--p-surface); }
   .pill-scene__in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 24px; padding: clamp(20px, 5%, 56px); }
