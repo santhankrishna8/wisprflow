@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Windows only: proves the paste path really types into another app.
-// Opens Notepad, puts text (English + Telugu) on the clipboard, takes the focus away,
-// then uses electron/win32.cjs exactly as the app does: bring Notepad back, press Ctrl+V,
-// and read Notepad's text to check it arrived.
+// Windows only: proves the app's real paste (paste.cjs simulatePaste, PowerShell SendKeys)
+// types into another app. Opens Notepad, puts English + Telugu text on the clipboard,
+// presses paste exactly as the app does, and reads Notepad's text to check it arrived.
 const { spawn, execFileSync } = require("node:child_process");
 const win32 = require("../electron/win32.cjs");
+const { simulatePaste, stopPasteHelper } = require("../electron/paste.cjs");
 const koffi = require("koffi");
 
 const TEXT = "SayType paste test తెలుగు " + Date.now();
@@ -35,7 +35,7 @@ async function main() {
 
     execFileSync("powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value '${TEXT}'`]);
     console.log("Focused again before paste:", win32.focus(target));
-    await win32.pressPaste();
+    await simulatePaste();
     await sleep(800);
 
     const len = Number(SendMessageLen(edit, 0x000e, 0, 0)); // WM_GETTEXTLENGTH
@@ -46,6 +46,7 @@ async function main() {
     if (!got.includes(TEXT)) throw new Error("The text did not arrive in Notepad.");
     console.log("Paste smoke test passed.");
   } finally {
+    stopPasteHelper();
     notepad.kill();
   }
 }

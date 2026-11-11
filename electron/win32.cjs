@@ -1,16 +1,10 @@
-// Direct Win32 calls for pasting and for knowing which window you're typing in.
-//
-// This replaces the PowerShell helper, which was slow to start, could be blocked by
-// antivirus or policy, and failed silently. Everything here runs in-process through
-// koffi (a Node-API FFI, so it needs no rebuild for Electron). If koffi can't load,
-// available() is false and paste.cjs falls back to PowerShell.
+// Read-only Win32 calls: which window is in front (for app-aware formatting).
+// Runs in-process through koffi (a Node-API FFI, so no rebuild for Electron), so it
+// can't interfere with pasting, which stays in paste.cjs. If koffi can't load,
+// activeWindow() returns null and formatting simply doesn't adapt to the app.
 
 let api; // undefined: not loaded yet, false: unavailable, object: ready
 
-const KEYEVENTF_KEYUP = 0x2;
-const INPUT_KEYBOARD = 1;
-const VK = { SHIFT: 0x10, CONTROL: 0x11, MENU: 0x12, LWIN: 0x5b, RWIN: 0x5c, V: 0x56 };
-const SCAN = { CONTROL: 0x1d, V: 0x2f };
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const SW_RESTORE = 9;
 
@@ -24,13 +18,8 @@ function load() {
     const kernel32 = koffi.load("kernel32.dll");
     const HANDLE = koffi.pointer("HANDLE", koffi.opaque());
     const HWND = koffi.alias("HWND", HANDLE);
-    const MOUSEINPUT = koffi.struct("ST_MOUSEINPUT", { dx: "long", dy: "long", mouseData: "uint32_t", dwFlags: "uint32_t", time: "uint32_t", dwExtraInfo: "uintptr_t" });
-    const KEYBDINPUT = koffi.struct("ST_KEYBDINPUT", { wVk: "uint16_t", wScan: "uint16_t", dwFlags: "uint32_t", time: "uint32_t", dwExtraInfo: "uintptr_t" });
-    const HARDWAREINPUT = koffi.struct("ST_HARDWAREINPUT", { uMsg: "uint32_t", wParamL: "uint16_t", wParamH: "uint16_t" });
-    const INPUT = koffi.struct("ST_INPUT", { type: "uint32_t", u: koffi.union({ mi: MOUSEINPUT, ki: KEYBDINPUT, hi: HARDWAREINPUT }) });
     api = {
       koffi,
-      INPUT,
       GetForegroundWindow: user32.func("HWND __stdcall GetForegroundWindow()"),
       GetWindowThreadProcessId: user32.func("uint32_t __stdcall GetWindowThreadProcessId(HWND hWnd, _Out_ uint32_t *pid)"),
       GetWindowTextW: user32.func("int __stdcall GetWindowTextW(HWND hWnd, _Out_ uint16_t *buf, int max)"),
@@ -40,8 +29,6 @@ function load() {
       BringWindowToTop: user32.func("bool __stdcall BringWindowToTop(HWND hWnd)"),
       SetForegroundWindow: user32.func("bool __stdcall SetForegroundWindow(HWND hWnd)"),
       AttachThreadInput: user32.func("bool __stdcall AttachThreadInput(uint32_t idAttach, uint32_t idAttachTo, bool attach)"),
-      GetAsyncKeyState: user32.func("int16_t __stdcall GetAsyncKeyState(int key)"),
-      SendInput: user32.func("uint32_t __stdcall SendInput(uint32_t count, ST_INPUT *inputs, int size)"),
       GetCurrentThreadId: kernel32.func("uint32_t __stdcall GetCurrentThreadId()"),
       OpenProcess: kernel32.func("HANDLE __stdcall OpenProcess(uint32_t access, bool inherit, uint32_t pid)"),
       QueryFullProcessImageNameW: kernel32.func("bool __stdcall QueryFullProcessImageNameW(HANDLE h, uint32_t flags, _Out_ uint16_t *buf, _Inout_ uint32_t *size)"),
@@ -91,7 +78,7 @@ function activeWindow() {
 }
 
 /**
- * Bring `target` back to the front if something else took over. Windows only lets the
+ * Bring `target` to the front (used by the paste smoke test to put Notepad in front). Windows only lets the
  * foreground app hand over focus, so we briefly attach to its input queue to do so.
  * @returns {boolean} whether `target` is now in front
  */
@@ -112,30 +99,4 @@ function focus(target) {
   return address(api.GetForegroundWindow()) === target.hwnd;
 }
 
-const isDown = (vk) => (api.GetAsyncKeyState(vk) & 0x8000) !== 0;
-const modifiersDown = () => [VK.SHIFT, VK.CONTROL, VK.MENU, VK.LWIN, VK.RWIN].some(isDown);
-
-/** Wait (up to `ms`) for the user to let go of Shift/Ctrl/Alt/Win, e.g. from the dictation shortcut. */
-async function waitForModifiers(ms = 700) {
-  if (!load()) return;
-  const end = Date.now() + ms;
-  while (modifiersDown() && Date.now() < end) await new Promise((r) => setTimeout(r, 15));
-}
-
-function key(vk, scan, up) {
-  return { type: INPUT_KEYBOARD, u: { ki: { wVk: vk, wScan: scan, dwFlags: up ? KEYEVENTF_KEYUP : 0, time: 0, dwExtraInfo: 0 } } };
-}
-
-/** Press Ctrl+V in the window in front. The four key events go in as one uninterruptible batch. */
-async function pressPaste() {
-  if (!load()) throw new Error("Native input unavailable.");
-  await waitForModifiers();
-  const events = [key(VK.CONTROL, SCAN.CONTROL, false), key(VK.V, SCAN.V, false), key(VK.V, SCAN.V, true), key(VK.CONTROL, SCAN.CONTROL, true)];
-  const sent = api.SendInput(events.length, events, api.koffi.sizeof(api.INPUT));
-  if (sent !== events.length) {
-    // Windows blocks input into apps running as administrator from a normal app (UIPI).
-    throw new Error("Windows blocked the paste. If that app runs as administrator, run SayType as administrator too.");
-  }
-}
-
-module.exports = { available, activeWindow, focus, waitForModifiers, pressPaste, loadError: () => loadError };
+module.exports = { available, activeWindow, focus, loadError: () => loadError };

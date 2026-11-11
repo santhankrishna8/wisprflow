@@ -42,7 +42,6 @@ let quitting = false;
 // idle | recording | processing | done | error
 let state = { status: "idle", message: "" };
 let activeAbort = null;
-let pasteTarget = null; // { app, title, hwnd, own } of that window, once known
 let activeApp = Promise.resolve(null); // the window the user was typing in when dictation started
 let updateInfo = null; // { version, url, canInstall, asset } when a newer release exists
 let registeredHotkey = null;
@@ -306,9 +305,8 @@ function startDictation() {
   registerEscape(true);
   warmPaste();
   const s = store.raw();
-  // Note which window is in front now, while the user is still in it: the text is pasted back there,
-  // and (unless turned off in Settings) its app and title shape the formatting.
-  activeApp = activeWindow();
+  // Note which app is in front now, while the user is still in it, to format for it.
+  activeApp = s.useAppContext === false ? Promise.resolve(null) : activeWindow();
   overlayWindow.webContents.send("dictation:start", {
     micDeviceId: s.micDeviceId,
     sounds: s.soundEffects,
@@ -361,7 +359,6 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
     }
     const language = fmt.normalizeLanguage(settings.language);
     const win = await Promise.race([activeApp, new Promise((r) => setTimeout(() => r(null), 800))]);
-    pasteTarget = win;
     const context = { ...fmt.resolveContext(settings, win), role: settings.role, about: settings.aboutYou, language };
     const terms = [
       ...dictionary.map((d) => d.to || d.word).filter(Boolean),
@@ -439,7 +436,7 @@ async function processAudio(_e, { audio, mimeType, durationMs }) {
     let message = settings.autoPaste ? "Pasted" : "Copied";
     if (settings.autoPaste) {
       try {
-        await pasteText(clipboard, text, { restore: settings.restoreClipboard, target: pasteTarget });
+        await pasteText(clipboard, text, { restore: settings.restoreClipboard });
       } catch (err) {
         clipboard.writeText(text);
         message = "Couldn't paste — it's on your clipboard";
