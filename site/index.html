@@ -146,7 +146,7 @@
         <h1 id="hero-h">Voice typing for every app on your Windows PC</h1>
         <p class="hero__lead">Press Ctrl+Shift+Space, say what you mean, press it again. SayType types clean, punctuated text at your cursor, with a Whisper model that runs on your own PC.</p>
         <div class="btn-row"><a class="btn btn--primary js-download" href="https://github.com/santhankrishna8/wisprflow/releases/latest/download/SayType-Setup.exe">Download for Windows<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#history">See the app</a></div>
-        <p class="hero__proof">Free and open source. About 110 MB, for Windows 10 and 11.</p>
+        <p class="hero__proof">Free and open source. <span data-latest="version"></span><span data-latest="size">About 110 MB</span>, for Windows 10 and 11.</p>
       </div>
       <div class="hero__art span-6 start-7" role="img" aria-label="SayType's history of dictations, and a card showing a spoken correction turned into clean text and pasted into Slack">
         <div class="ly-piece ly-piece--main d-win" aria-hidden="true">
@@ -429,7 +429,7 @@
     <div class="closing__cta close--type">
       <div class="section-head">
         <h2 id="close-h">Download SayType for Windows</h2>
-        <p>Free and open source. About 110 MB, for Windows 10 and 11, 64-bit.</p>
+        <p>Free and open source. <span data-latest="version"></span><span data-latest="size">About 110 MB</span>, for Windows 10 and 11, 64-bit.</p>
       </div>
       <a class="btn btn--primary btn--xl btn--wide js-download" href="https://github.com/santhankrishna8/wisprflow/releases/latest/download/SayType-Setup.exe">Download for Windows<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
     </div>
@@ -454,5 +454,24 @@
 <script type="module" src="assets/system.js"></script>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>
+<script>
+/* Every successful build publishes a GitHub release. Read the newest one so the version and
+   installer size here are always current; if GitHub can't be reached the static text stays. */
+(function () {
+  var api = "https://api.github.com/repos/santhankrishna8/wisprflow/releases/latest";
+  fetch(api, { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (rel) {
+      var exe = (rel.assets || []).filter(function (a) { return a.name === "SayType-Setup.exe"; })[0];
+      if (!exe) return;
+      var size = "About " + Math.round(exe.size / 1048576) + " MB";
+      var version = String(rel.tag_name || "").replace(/^v/, "");
+      document.querySelectorAll('[data-latest="size"]').forEach(function (el) { el.textContent = size; });
+      document.querySelectorAll('[data-latest="version"]').forEach(function (el) { if (version) el.textContent = "Version " + version + ". "; });
+      document.querySelectorAll(".js-download").forEach(function (a) { a.href = exe.browser_download_url; });
+    })
+    .catch(function () {});
+})();
+</script>
 </body>
 </html>
