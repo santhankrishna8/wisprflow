@@ -144,12 +144,28 @@ async function legacyPaste() {
   );
 }
 
-/** Keep every common format (text, rich text, image) so restoring doesn't flatten what you had copied. */
+/**
+ * Remember the text you had copied, so it can be put back after pasting.
+ * Electron 45's clipboard only has readText/writeText (readHTML, readRTF and readImage
+ * are gone); calling them threw and stopped every paste before Ctrl+V was pressed.
+ * This must never throw: failing to save the old clipboard is no reason not to paste.
+ */
 function snapshot(clipboard) {
-  const data = { text: clipboard.readText(), html: clipboard.readHTML(), rtf: clipboard.readRTF() };
-  const image = clipboard.readImage();
-  if (!image.isEmpty()) data.image = image;
-  return data;
+  try {
+    const text = clipboard.readText();
+    return typeof text === "string" && text ? { text } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Put the remembered text back, unless the clipboard changed again in the meantime. */
+function restoreSnapshot(clipboard, previous, pasted) {
+  try {
+    if (previous && clipboard.readText() === pasted) clipboard.writeText(previous.text);
+  } catch {
+    /* leave the dictated text on the clipboard */
+  }
 }
 
 async function pasteText(clipboard, text, { restore = true, target = null } = {}) {
@@ -158,10 +174,7 @@ async function pasteText(clipboard, text, { restore = true, target = null } = {}
   await new Promise((r) => setTimeout(r, 60));
   await simulatePaste(target);
   if (restore && previous) {
-    setTimeout(() => {
-      // Only restore if nothing else changed the clipboard meanwhile.
-      if (clipboard.readText() === text) clipboard.write(previous);
-    }, 1500); // some apps read the clipboard a moment after Ctrl+V
+    setTimeout(() => restoreSnapshot(clipboard, previous, text), 1500).unref?.(); // some apps read the clipboard a moment after Ctrl+V
   }
 }
 
@@ -204,4 +217,4 @@ async function activeWindow() {
   }
 }
 
-module.exports = { pasteText, warmPaste, stopPasteHelper, activeWindow, simulatePaste, lastPaste: () => last };
+module.exports = { pasteText, warmPaste, stopPasteHelper, activeWindow, simulatePaste, lastPaste: () => last, snapshot, restoreSnapshot };

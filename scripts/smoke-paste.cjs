@@ -1,17 +1,35 @@
 #!/usr/bin/env node
-// Windows only: proves the app's real paste (paste.cjs simulatePaste, PowerShell SendKeys)
-// types into another app. Opens Notepad, puts English + Telugu text on the clipboard,
-// presses paste exactly as the app does, and reads Notepad's text to check it arrived.
-const { spawn, execFileSync } = require("node:child_process");
+// Run with Electron: `electron scripts/smoke-paste.cjs`.
+// Proves the app's real paste, end to end, with Electron's real clipboard: pasteText()
+// saves the clipboard, writes English + Telugu text, brings the target window back and
+// presses Ctrl+V; then Notepad's text is read back. On other systems it only checks that
+// the clipboard save/restore runs against the real Electron clipboard.
+const { spawn } = require("node:child_process");
 const win32 = require("../electron/win32.cjs");
-const { simulatePaste, stopPasteHelper } = require("../electron/paste.cjs");
+const fs = require("node:fs");
+const path = require("node:path");
+const { app, clipboard } = require("electron");
+const { pasteText, stopPasteHelper, snapshot, lastPaste } = require("../electron/paste.cjs");
+
+// Electron on Windows has no console in CI: also write everything to a log file.
+const LOG = path.join(__dirname, "..", "paste-smoke.log");
+fs.rmSync(LOG, { force: true });
+for (const k of ["log", "error"]) {
+  const orig = console[k].bind(console);
+  console[k] = (...a) => (fs.appendFileSync(LOG, a.join(" ") + "\n"), orig(...a));
+}
 const koffi = require("koffi");
 
 const TEXT = "SayType paste test తెలుగు " + Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  if (process.platform !== "win32") return console.log("Not Windows: skipped.");
+  await app.whenReady();
+  console.log("Electron", process.versions.electron, "clipboard API:", Object.keys(clipboard).join(","));
+  clipboard.writeText("what the user had copied");
+  const saved = snapshot(clipboard); // must not throw on any platform
+  if (process.platform !== "win32") return console.log("Not Windows: clipboard save ran without error, paste skipped.", JSON.stringify(saved));
+  if (saved?.text !== "what the user had copied") throw new Error("Could not read the clipboard back.");
   if (!win32.available()) throw new Error(`Native input failed to load: ${win32.loadError()?.message}`);
   const user32 = koffi.load("user32.dll");
   const HWND = koffi.pointer("SMOKE_HWND", koffi.opaque());
@@ -33,18 +51,17 @@ async function main() {
     const target = { handle: hwnd, hwnd: Number(koffi.address(hwnd)) };
     console.log("Notepad in front:", win32.focus(target), "| front window now:", win32.activeWindow()?.app);
 
-    execFileSync("powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value '${TEXT}'`]);
     console.log("Focused again before paste:", win32.focus(target));
     // Take the focus away first, as happens when another window pops up while transcribing.
     const other = spawn("notepad.exe", [], { detached: false });
     await sleep(1500);
     console.log("Front window before paste:", win32.activeWindow()?.title);
     try {
-      await simulatePaste({ ...target, app: "notepad" });
+      await pasteText(clipboard, TEXT, { restore: true, target: { ...target, app: "notepad" } });
     } finally {
       other.kill();
     }
-    console.log("Paste report:", JSON.stringify(require("../electron/paste.cjs").lastPaste()));
+    console.log("Paste report:", JSON.stringify(lastPaste()));
     await sleep(800);
 
     const len = Number(SendMessageLen(edit, 0x000e, 0, 0)); // WM_GETTEXTLENGTH
@@ -53,14 +70,19 @@ async function main() {
     const got = buf.toString("utf16le", 0, len * 2);
     console.log(`Notepad contains: ${JSON.stringify(got)}`);
     if (!got.includes(TEXT)) throw new Error("The text did not arrive in Notepad.");
-    console.log("Paste smoke test passed.");
+    await sleep(1800);
+    if (clipboard.readText() !== "what the user had copied") throw new Error("The previous clipboard text was not restored.");
+    console.log("Paste smoke test passed (and the old clipboard came back).");
   } finally {
     stopPasteHelper();
     notepad.kill();
   }
 }
 
-main().catch((err) => {
-  console.error(`Paste smoke test FAILED: ${err.message}`);
-  process.exit(1);
-});
+main().then(
+  () => app.exit(0),
+  (err) => {
+    console.error(`Paste smoke test FAILED: ${err.stack || err.message}`);
+    app.exit(1);
+  }
+);
