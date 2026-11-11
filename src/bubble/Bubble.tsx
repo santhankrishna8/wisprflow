@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { PointerEvent } from "react";
 import { Check } from "lucide-react";
 import { cx } from "../components/ui";
@@ -27,6 +28,7 @@ export default function Bubble() {
     collapsed: params.has("collapsed"),
   });
   const [dragging, setDragging] = useState(false);
+  const [leaving, setLeaving] = useState(false); // the pill is sliding back into the edge
   const [hover, setHover] = useState(params.has("hover"));
   const pressed = useRef(false);
   const raf = useRef(0);
@@ -63,6 +65,14 @@ export default function Bubble() {
     if (!window.saytype && !moved) bridge.toggleDictation(); // browser preview
   };
 
+  // Slide into the edge, then shrink the window to the tab. Skips the slide for people who prefer less motion.
+  const tuck = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return bridge.setBubbleCollapsed(true);
+    setLeaving(true);
+    setTimeout(() => bridge.setBubbleCollapsed(true), 220);
+  };
+  useEffect(() => setLeaving(false), [layout.collapsed]);
+
   // Tuck back into the edge when nothing is happening.
   const used = useRef(false); // a dictation ran while the pill was open
   useEffect(() => {
@@ -75,7 +85,7 @@ export default function Bubble() {
       return;
     }
     if (hover || dragging) return;
-    const t = setTimeout(() => bridge.setBubbleCollapsed(true), used.current ? TUCK_AFTER_DONE_MS : TUCK_AFTER_MS);
+    const t = setTimeout(() => tuck(), used.current ? TUCK_AFTER_DONE_MS : TUCK_AFTER_MS);
     return () => clearTimeout(t);
   }, [demo, layout.collapsed, state.status, hover, dragging]);
 
@@ -83,19 +93,23 @@ export default function Bubble() {
   const recording = s === "recording";
   const processing = s === "processing";
   const right = layout.side === "right";
+  const dirStyle = { "--dir": right ? 1 : -1 } as CSSProperties;
 
   if (layout.collapsed) {
     return (
+      <main role="main" className="h-screen w-screen">
       <button
         aria-label="Open the SayType pill"
         title="Open the SayType pill"
         onClick={() => bridge.setBubbleCollapsed(false)}
+        style={dirStyle}
         className={cx("group flex h-screen w-screen items-center", right ? "justify-end" : "justify-start")}
       >
         {/* Flush with the screen edge. The outline keeps it visible on dark and light apps alike. */}
         <span
           className={cx(
-            "flex h-[88px] w-[13px] flex-col items-center justify-center gap-[5px] transition-[width] duration-150 group-hover:w-[17px]",
+            "tab-in flex h-[88px] w-[13px] flex-col items-center justify-center gap-[5px] transition-[width] duration-150 group-hover:w-[17px]",
+            !recording && "tab-nudge",
             right ? "rounded-l-full" : "rounded-r-full",
             "bg-[#0d2b2f] shadow-[0_0_0_1.5px_#9fd6cf,0_0_0_3px_rgba(255,255,255,0.35),0_2px_10px_rgba(0,0,0,0.5)]",
             recording && "animate-pulse"
@@ -106,11 +120,14 @@ export default function Bubble() {
           ))}
         </span>
       </button>
+      </main>
     );
   }
 
   return (
     <div
+      style={dirStyle}
+      role="main"
       className="relative flex h-screen w-screen flex-col items-center justify-center"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -123,6 +140,7 @@ export default function Bubble() {
         onPointerCancel={onPointerUp}
         className={cx(
           "relative flex h-[104px] w-[34px] touch-none items-center justify-center rounded-full bg-[#0d2b2f] transition-[transform,box-shadow] duration-200",
+          leaving ? "pill-out" : "pill-in",
           dragging ? "scale-105 cursor-grabbing" : "hover:scale-[1.04] active:scale-95",
           s === "error"
             ? "shadow-[0_6px_16px_-6px_rgba(6,40,44,0.8),0_0_0_1.5px_rgba(255,143,138,0.7)_inset]"

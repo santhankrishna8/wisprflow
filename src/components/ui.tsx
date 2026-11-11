@@ -92,7 +92,7 @@ export function SectionTitle({ title, description, action }: { title: string; de
   return (
     <div className="mb-3 flex items-end justify-between gap-4 px-1">
       <div>
-        <h3 className="text-[13px] font-semibold tracking-tight text-fg">{title}</h3>
+        <h2 className="text-[13px] font-semibold tracking-tight text-fg">{title}</h2>
         {description && <p className="mt-0.5 text-[12.5px] text-fg-3">{description}</p>}
       </div>
       {action}

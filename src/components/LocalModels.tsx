@@ -59,6 +59,8 @@ export function LocalModelPicker({
     else if (!r.cancelled) toast(r.error || "Download failed", "error");
   };
 
+  const choose = (m: LocalModel) => () => (m.downloaded ? onChange(m.id) : !(busy[m.id] || m.downloading) && download(m.id));
+
   if (!available) {
     return (
       <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-[13px] text-fg-2">
@@ -68,7 +70,7 @@ export function LocalModelPicker({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div role="radiogroup" aria-label="Speech model" className="flex flex-col gap-2">
       {indic && chosen?.english && (
         <p className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-[12.5px] leading-relaxed text-fg-2">
           <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
@@ -86,11 +88,7 @@ export function LocalModelPicker({
         return (
           <div
             key={m.id}
-            role="radio"
-            aria-checked={selected}
-            tabIndex={0}
-            onClick={() => (m.downloaded ? onChange(m.id) : !downloading && download(m.id))}
-            onKeyDown={(e) => e.key === "Enter" && (m.downloaded ? onChange(m.id) : !downloading && download(m.id))}
+            onClick={choose(m)}
             className={cx(
               "relative overflow-hidden rounded-xl border px-4 py-3 transition-all",
               selected ? "border-accent bg-accent-soft/60 ring-4 ring-accent/10" : "border-line-strong bg-surface",
@@ -101,6 +99,16 @@ export function LocalModelPicker({
               <span className="absolute inset-y-0 left-0 bg-accent/10 transition-[width] duration-200" style={{ width: `${pct}%` }} />
             )}
             <div className="relative flex items-center gap-3">
+              {/* The radio is its own button, so the action buttons beside it aren't nested inside it. */}
+              <button
+                role="radio"
+                aria-checked={selected}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  choose(m)();
+                }}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
               <span
                 className={cx(
                   "flex size-4 shrink-0 items-center justify-center rounded-full border",
@@ -120,6 +128,7 @@ export function LocalModelPicker({
                   {downloading && p ? `Downloading… ${mb(p.received)} of ${mb(p.total)} (${pct}%)` : m.blurb}
                 </div>
               </div>
+              </button>
               {downloading ? (
                 <IconButton
                   label="Cancel download"

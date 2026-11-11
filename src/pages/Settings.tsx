@@ -125,6 +125,7 @@ function General({ settings, update }: Props) {
         <Card>
           <Row title="Keep history" description="Older dictations are deleted automatically. Stats only count what's kept.">
             <Select
+              aria-label="Keep history for"
               value={settings.historyRetention}
               onChange={(e) => update({ historyRetention: e.target.value as Settings["historyRetention"] })}
               className="w-[180px]"
@@ -143,7 +144,7 @@ function General({ settings, update }: Props) {
         <SectionTitle title="System" />
         <Card>
           <Row title="Microphone">
-            <Select value={settings.micDeviceId} onChange={(e) => update({ micDeviceId: e.target.value })} className="w-[260px]">
+            <Select aria-label="Microphone" value={settings.micDeviceId} onChange={(e) => update({ micDeviceId: e.target.value })} className="w-[260px]">
               <option value="default">System default</option>
               {mics
                 .filter((m) => m.deviceId !== "default")

@@ -102,7 +102,8 @@ export default function Overlay() {
   if (s === "idle") return null;
 
   return (
-    <div className="flex h-screen items-end justify-center pb-3">
+    <main className="flex h-screen items-end justify-center pb-3">
+      <div role="status" aria-live="polite" aria-label="Dictation status" className="contents">
       <div
         onMouseEnter={() => bridge.setOverlayInteractive(true)}
         onMouseLeave={() => bridge.setOverlayInteractive(false)}
@@ -193,6 +194,7 @@ export default function Overlay() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </main>
   );
 }

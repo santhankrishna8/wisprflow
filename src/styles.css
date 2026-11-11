@@ -16,8 +16,8 @@
   --line: rgba(6, 82, 92, 0.1);
   --line-strong: rgba(6, 82, 92, 0.2);
   --text: #06525c;
-  --text-2: #2f737d;
-  --text-3: #5b8a90;
+  --text-2: #2a6d77;
+  --text-3: #3f6c75;
   --accent: #06525c;
   --accent-ink: #f7f9f8;
   --accent-2: #9fd6cf;
@@ -27,7 +27,7 @@
   --panel-2: #205d66;
   --success: #0f8a5f;
   --danger: #c8403f;
-  --warning: #b86e00;
+  --warning: #8f5400;
   --shadow-sm: 0 1px 2px rgba(6, 40, 44, 0.05);
   --shadow-md: 0 1px 2px rgba(6, 40, 44, 0.04), 0 6px 20px -6px rgba(6, 40, 44, 0.12);
   --shadow-lg: 0 2px 4px rgba(6, 40, 44, 0.04), 0 24px 60px -16px rgba(6, 40, 44, 0.28);
@@ -44,7 +44,7 @@
   --line-strong: rgba(159, 214, 207, 0.2);
   --text: #e9f1f0;
   --text-2: #a9c4c5;
-  --text-3: #7a9da0;
+  --text-3: #92b3b5;
   --accent: #9fd6cf;
   --accent-ink: #06282c;
   --accent-2: #9fd6cf;
@@ -257,4 +257,60 @@ html.bubble body {
   50% {
     transform: scaleX(1);
   }
+}
+
+/* Pill <-> edge tab. --dir is +1 on the right edge and -1 on the left. */
+@keyframes pill-in {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(var(--dir) * 34px)) scale(0.55, 0.8);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pill-out {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(var(--dir) * 34px)) scale(0.55, 0.8);
+  }
+}
+@keyframes tab-in {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(var(--dir) * 14px));
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tab-nudge {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateX(calc(var(--dir) * -3px));
+  }
+}
+.pill-in {
+  animation: pill-in 340ms cubic-bezier(0.22, 1.2, 0.36, 1) backwards;
+}
+.pill-out {
+  animation: pill-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.tab-in {
+  animation: tab-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.tab-nudge {
+  animation: tab-nudge 1.4s ease-in-out 600ms 2;
 }

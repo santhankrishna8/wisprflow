@@ -36,7 +36,7 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
 
   return (
     <div className="flex h-full">
-      <div className="drag flex min-w-0 flex-1 flex-col">
+      <main className="drag flex min-w-0 flex-1 flex-col">
         <div className={cx("flex items-center gap-2.5 px-10", isMac ? "pt-12" : "pt-7")}>
           <Logo size={24} />
           <span className="text-[14px] font-semibold tracking-tight">SayType</span>
@@ -83,7 +83,7 @@ export default function Onboarding({ settings, update, refresh, state }: Props) 
             )}
           </div>
         </div>
-      </div>
+      </main>
 
       <Showcase step={step} hotkey={settings.hotkey} />
     </div>
@@ -349,7 +349,7 @@ function Showcase({ step, hotkey }: { step: Step; hotkey: string }) {
   };
   const l = lines[step];
   return (
-    <div className="drag relative hidden w-[44%] max-w-[560px] shrink-0 overflow-hidden bg-[#06525c] lg:block dark:bg-[#0d2b2f]">
+    <aside aria-hidden="true" className="drag relative hidden w-[44%] max-w-[560px] shrink-0 overflow-hidden bg-[#06525c] lg:block dark:bg-[#0d2b2f]">
       <div className="absolute -top-20 -right-20 size-[420px] rounded-full bg-[#9fd6cf] opacity-20 blur-[110px]" />
       <div
         className="absolute inset-0 opacity-[0.06]"
@@ -388,6 +388,6 @@ function Showcase({ step, hotkey }: { step: Step; hotkey: string }) {
           <Hotkey accel={hotkey} size="sm" tone="inverse" />
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
