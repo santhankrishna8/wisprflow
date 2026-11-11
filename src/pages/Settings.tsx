@@ -109,10 +109,10 @@ function General({ settings, update }: Props) {
             <Switch checked={settings.restoreClipboard} onChange={(v) => update({ restoreClipboard: v })} label="Restore clipboard" />
           </Row>
           <Row
-            title="Edge tab"
-            description="A slim tab at the edge of your screen. Click it to open the dictation pill; click the pill to dictate, drag it to move. The pill tucks back into the tab when you're done."
+            title="Edge handle"
+            description="A slim handle at the edge of your screen. Click it once to start dictating; it grows into a pill, and clicking the pill finishes. Drag it to move it."
           >
-            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Edge tab" />
+            <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Edge handle" />
           </Row>
           <Row title="Sound effects" description="Soft chimes when recording starts and stops.">
             <Switch checked={settings.soundEffects} onChange={(v) => update({ soundEffects: v })} label="Sound effects" />

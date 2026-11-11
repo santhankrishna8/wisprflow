@@ -158,12 +158,14 @@ function createOverlayWindow() {
   load(overlayWindow, "overlay.html");
 }
 
-// ---------- Floating pill ----------
-// A slim vertical pill at the screen edge. Its close button doesn't remove it:
-// it tucks the pill into the edge as a small tab that brings it back on click.
+// ---------- Edge handle ----------
+// A slim handle rests at the screen edge. One click starts dictation and the
+// handle grows into a pill; when dictation ends it shrinks back. The window
+// never changes size (so the change can be animated): while it shows only the
+// handle, clicks on the empty part of the window pass through to the app below.
 const BUBBLE = { width: 52, height: 150 };
-const BUBBLE_TAB = { width: 24, height: 104 };
 const EDGE_MARGIN = 0;
+let bubbleHover = false; // the pointer is on the handle itself
 
 function defaultBubblePosition() {
   const { workArea } = screen.getPrimaryDisplay();
@@ -192,24 +194,15 @@ function bubbleLayout() {
   const pos = clampBubble(saved, false);
   const { workArea: wa } = screen.getDisplayNearestPoint({ x: pos.x + BUBBLE.width / 2, y: pos.y + BUBBLE.height / 2 });
   const side = pos.x + BUBBLE.width / 2 < wa.x + wa.width / 2 ? "left" : "right";
-  const collapsed = Boolean(s.bubbleCollapsed);
-  const bounds = collapsed
-    ? {
-        x: side === "left" ? wa.x : wa.x + wa.width - BUBBLE_TAB.width,
-        y: Math.round(pos.y + (BUBBLE.height - BUBBLE_TAB.height) / 2),
-        ...BUBBLE_TAB,
-      }
-    : { ...pos, ...BUBBLE };
-  return { bounds, side, collapsed };
+  return { bounds: { ...pos, ...BUBBLE }, side, collapsed: Boolean(s.bubbleCollapsed) };
 }
 
 function applyBubbleLayout() {
   if (!bubbleWindow || bubbleWindow.isDestroyed()) return;
   const layout = bubbleLayout();
-  // Some platforms refuse to resize a non-resizable window, even from code.
-  bubbleWindow.setResizable(true);
   bubbleWindow.setBounds(layout.bounds);
-  bubbleWindow.setResizable(false);
+  // Click-through needs forwarded mouse moves to notice the pointer reaching the handle; Linux has none.
+  if (process.platform !== "linux") bubbleWindow.setIgnoreMouseEvents(layout.collapsed && !bubbleHover, { forward: true });
   bubbleWindow.webContents.send("bubble:layout", { side: layout.side, collapsed: layout.collapsed });
 }
 
@@ -537,7 +530,7 @@ function updateTray() {
       ...(updateInfo ? [{ label: `Update available — v${updateInfo.version}`, click: () => shell.openExternal(updateInfo.url) }] : []),
       { label: "Open SayType", click: showMain },
       {
-        label: "Show edge tab",
+        label: "Show edge handle",
         type: "checkbox",
         checked: Boolean(store.raw().showBubble),
         click: (item) => {
@@ -690,7 +683,7 @@ function registerIpc() {
   // Drag is tracked in the main process with the real cursor position, which
   // stays correct across displays and DPI scales.
   ipcMain.on("bubble:dragStart", () => {
-    if (!bubbleWindow || store.raw().bubbleCollapsed) return;
+    if (!bubbleWindow) return;
     const [wx, wy] = bubbleWindow.getPosition();
     const c = screen.getCursorScreenPoint();
     bubbleDrag = { dx: c.x - wx, dy: c.y - wy, startX: c.x, startY: c.y, moved: false };
@@ -707,6 +700,8 @@ function registerIpc() {
     bubbleDrag = null;
     if (!bubbleWindow || !drag) return { moved: false };
     if (!drag.moved) {
+      // One click on the handle both opens the pill and starts listening.
+      if (store.raw().bubbleCollapsed && state.status !== "recording" && state.status !== "processing") setBubbleCollapsed(false);
       toggleDictation();
       return { moved: false };
     }
@@ -716,6 +711,10 @@ function registerIpc() {
     return { moved: true };
   });
   ipcMain.handle("bubble:setCollapsed", (_e, collapsed) => setBubbleCollapsed(collapsed));
+  ipcMain.on("bubble:interactive", (_e, on) => {
+    bubbleHover = Boolean(on);
+    applyBubbleLayout();
+  });
   ipcMain.handle("bubble:getLayout", () => {
     const { side, collapsed } = bubbleLayout();
     return { side, collapsed };

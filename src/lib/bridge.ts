@@ -140,6 +140,8 @@ export interface BridgeApi {
   bubbleDragMove(): void;
   bubbleDragEnd(): Promise<{ moved: boolean }>;
   setBubbleCollapsed(collapsed: boolean): Promise<void>;
+  /** Tell the main process the pointer is on the handle, so the window should take clicks. */
+  setBubbleInteractive(on: boolean): void;
   getBubbleLayout(): Promise<BubbleLayout>;
   onBubbleLayout(cb: (l: BubbleLayout) => void): Unsub;
   copy(text: string): Promise<void>;
@@ -332,6 +334,7 @@ function createMock(): BridgeApi {
       return { moved: false };
     },
     setBubbleCollapsed: async (collapsed) => emit("bubbleLayout", { side: "right", collapsed }),
+    setBubbleInteractive: () => {},
     getBubbleLayout: async () => ({ side: "right", collapsed: true }),
     onBubbleLayout: on("bubbleLayout"),
     copy: async (t) => {

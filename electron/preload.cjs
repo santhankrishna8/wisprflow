@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld("saytype", {
   bubbleDragMove: () => ipcRenderer.send("bubble:dragMove"),
   bubbleDragEnd: () => ipcRenderer.invoke("bubble:dragEnd"),
   setBubbleCollapsed: (collapsed) => ipcRenderer.invoke("bubble:setCollapsed", Boolean(collapsed)),
+  setBubbleInteractive: (on) => ipcRenderer.send("bubble:interactive", Boolean(on)),
   getBubbleLayout: () => ipcRenderer.invoke("bubble:getLayout"),
   onBubbleLayout: on("bubble:layout"),
 

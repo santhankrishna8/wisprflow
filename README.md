@@ -14,7 +14,7 @@
 - **Built for developers** – in VS Code, Cursor, Windsurf, JetBrains IDEs and terminals it writes camelCase and snake_case, turns “utils dot ts” into `utils.ts`, tags files as `@utils.ts` in Cursor and Windsurf, and spells tools like Supabase, Vercel and PostgreSQL correctly.
 - **Role and names** – tell it your role (developer, student, writer, business, support, healthcare) and a line about you, and add uncommon names and terms to the dictionary: Adithya, git diff, Andreessen Horowitz, Guillain–Barré syndrome.
 - **Instant formatting, no key needed** – “new line”, “new paragraph” and “bullet point”, filler removal, file names and developer terms work offline. Add an AI key (or Ollama) for lists, emails, prompts and self-corrections (“4, actually 5” → “5”). Styles: Natural, Professional, Casual or Verbatim.
-- **Edge tab and pill** – a slim always-on-top tab rests at the edge of your screen. Click it to open the dictation pill; click the pill to start or stop listening, drag it anywhere (it snaps to the nearest side). When you're done it tucks back into the tab by itself, so it stays out of the way and can't get lost.
+- **Edge handle** – a slim always-on-top handle rests at the edge of your screen. Click it once to start listening: it grows into a pill with a live voice mark, and clicking the pill finishes. When the text is pasted it shrinks back to the handle. Drag it anywhere; it snaps to the nearest side.
 - **Recording bar** – a live waveform, timer, and cancel/finish buttons that never steal focus from the app you're typing in.
 - **Free, private, offline transcription** – choose **On this PC** and SayType runs Whisper (whisper.cpp) on your own computer. No API key, no Docker, no cost. Base (142 MB) is fine for English; use Large v3 Turbo (574 MB) or Large v3 (1.08 GB) for Indian languages. The engine only runs while you dictate and shuts itself down after 10 idle minutes.
 - **Or bring your own provider** – OpenAI or Groq (Whisper Large v3, the fastest accurate option for Telugu, Tamil and Kannada) for speech-to-text, and OpenAI, Anthropic Claude, or Groq for polish. Any **OpenAI-compatible self-hosted server** (Speaches, faster-whisper-server, Ollama, LM Studio) works too.
@@ -28,7 +28,7 @@
 | <img src="docs/history.png" alt="History" /> | <img src="docs/home-dark.png" alt="Dark mode" /> |
 
 <p align="center"><img src="docs/overlay-recording.png" width="420" alt="Recording pill" /></p>
-<p align="center"><img src="docs/bubble-states.png" width="470" alt="Edge tab, and the pill it opens: idle, recording, processing, done, error" /></p>
+<p align="center"><img src="docs/bubble-states.png" width="470" alt="Edge handle, and the pill it grows into: recording, processing, done, error" /></p>
 
 ## Getting started
 
