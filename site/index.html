@@ -392,6 +392,42 @@
     </div>
   </section>
 
+  <section class="section" id="more" aria-labelledby="more-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="more-h">More than typing. <span class="muted">Built so you can trust it.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card span-4">
+            <h3>Nothing you say is lost</h3>
+            <p>Each recording is saved before transcription starts. If a provider fails or the app closes, Home offers to retry it. Unsent recordings delete themselves after 24 hours.</p>
+          </article>
+          <article class="card span-4">
+            <h3>See what left your PC</h3>
+            <p>Every dictation in History has a receipt: which model heard you, whether the AI polish ran, whether anything was sent to a cloud provider, and where the text went.</p>
+          </article>
+          <article class="card span-4">
+            <h3>Edit by voice</h3>
+            <p>Select text in any app, press Ctrl+Alt+Space and say “make it shorter” or “translate to Spanish”. The selection is replaced. Works with your own AI provider, or Ollama offline.</p>
+          </article>
+          <article class="card span-4">
+            <h3>Voice snippets</h3>
+            <p>Say “my signature” and your saved signature is typed. Snippets fire only on an exact phrase, so ordinary sentences are never rewritten.</p>
+          </article>
+          <article class="card span-4">
+            <h3>Learns from your fixes</h3>
+            <p>Correct a word in History and SayType offers to remember it. Nothing is added to your dictionary until you say yes, and it all stays on your PC.</p>
+          </article>
+          <article class="card span-4">
+            <h3>Run it again, compare</h3>
+            <p>Keep recordings if you like, then re-run one on a bigger model and see both versions side by side. Off by default; the audio is deleted with the dictation.</p>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section" id="faq" aria-labelledby="faq-h">
     <div class="wrap">
       <div class="grid grid--top">
@@ -417,6 +453,7 @@
           <div class="faq__item"><h3>Why does Windows warn about SayType?</h3><p>New apps without a paid code-signing certificate show that warning. Choose More info, then Run anyway. Every installer is built on GitHub from the public source.</p></div>
           <div class="faq__item"><h3>Which SayType model should I download?</h3><p>For English, Base at 142 MB suits most laptops. For Hindi, Telugu, Tamil or Kannada, choose Large v3 Turbo at 574 MB: the small models get those languages wrong.</p></div>
           <div class="faq__item"><h3>Does SayType’s AI cleanup work offline?</h3><p>Yes, with Ollama. Run <code>ollama pull llama3.2:3b</code>, then choose Self-hosted, then Use Ollama under AI cleanup.</p></div>
+          <div class="faq__item"><h3>Does Edit by voice send my text anywhere?</h3><p>Only to the AI provider you set up for cleanup. Point it at Ollama and the selection never leaves your PC. Each dictation’s receipt in History shows exactly what was used.</p></div>
           <div class="faq__item"><h3>Is there a SayType for Mac?</h3><p>Not as an installer yet. On macOS or Linux, run it from the source code with npm.</p></div>
         </div>
       </div>
@@ -439,7 +476,7 @@
           <a class="nav__logo" href="#top"><img src="assets/logo.svg" alt="" width="24" height="24" loading="lazy">SayType</a>
           <p class="footer__lede">Voice typing for Windows that runs on your own PC.</p>
         </div>
-        <div class="span-2 footer__col"><h3>App</h3><ul><li><a href="#history">History</a></li><li><a href="#offline">Offline models</a></li><li><a href="#cleanup">Cleanup</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>App</h3><ul><li><a href="#history">History</a></li><li><a href="#offline">Offline models</a></li><li><a href="#cleanup">Cleanup</a></li><li><a href="#more">Trust &amp; voice tools</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Help</h3><ul><li><a href="#faq">Questions</a></li><li><a href="https://github.com/santhankrishna8/wisprflow/releases">Releases</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Source</h3><ul><li><a href="https://github.com/santhankrishna8/wisprflow">GitHub</a></li><li><a href="https://github.com/OpenWhispr/openwhispr">OpenWhispr</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Maker</h3><ul><li><a href="https://github.com/santhankrishna8">Santhan Krishna</a></li></ul></div>

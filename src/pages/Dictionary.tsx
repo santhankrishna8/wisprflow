@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BookA, Plus, Trash2 } from "lucide-react";
-import { Button, Card, EmptyState, IconButton, Input, useToast } from "../components/ui";
+import { ArrowRight, BookA, MessageSquareText, Plus, Trash2 } from "lucide-react";
+import { Button, Card, EmptyState, IconButton, Input, SectionTitle, Textarea, useToast } from "../components/ui";
 import { bridge } from "../lib/bridge";
-import type { DictionaryEntry } from "../lib/bridge";
+import type { DictionaryEntry, Snippet } from "../lib/bridge";
 
 export default function Dictionary() {
   const [list, setList] = useState<DictionaryEntry[]>([]);
@@ -10,10 +10,30 @@ export default function Dictionary() {
   const [to, setTo] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+  const [snippets, setSnippets] = useState<Snippet[]>([]);
+  const [trigger, setTrigger] = useState("");
+  const [body, setBody] = useState("");
 
   useEffect(() => {
     bridge.getDictionary().then(setList);
+    bridge.getSnippets().then(setSnippets);
   }, []);
+
+  const saveSnippets = (next: Snippet[]) => {
+    setSnippets(next);
+    bridge.setSnippets(next);
+  };
+  const addSnippet = () => {
+    const t = trigger.trim();
+    if (!t || !body.trim()) return;
+    if (snippets.some((s) => s.trigger.toLowerCase() === t.toLowerCase())) {
+      toast(`You already have a snippet called “${t}”`, "error");
+      return;
+    }
+    saveSnippets([{ id: crypto.randomUUID(), trigger: t, text: body }, ...snippets]);
+    setTrigger("");
+    setBody("");
+  };
 
   const save = (next: DictionaryEntry[]) => {
     setList(next);
@@ -97,6 +117,55 @@ export default function Dictionary() {
           </ul>
         </Card>
       )}
+
+      <section className="mt-12">
+        <SectionTitle
+          title="Voice snippets"
+          description="Say a trigger phrase on its own and SayType types the saved text instead: an email signature, a stock reply, a template. Only an exact match triggers it, so normal sentences are never changed."
+        />
+        <Card className="mb-4 p-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addSnippet();
+            }}
+            className="flex flex-col gap-2"
+          >
+            <Input value={trigger} onChange={(e) => setTrigger(e.target.value)} placeholder="Say this, e.g. my signature" maxLength={80} />
+            <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="…and this gets typed" rows={3} />
+            <div>
+              <Button type="submit" variant="primary" icon={<Plus className="size-4" />} disabled={!trigger.trim() || !body.trim()}>
+                Add snippet
+              </Button>
+            </div>
+          </form>
+        </Card>
+        {snippets.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={<MessageSquareText className="size-6" />}
+              title="No snippets yet"
+              description="Try “my email”, “my address” or “meeting notes template”. You can also say “insert” first."
+            />
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <ul>
+              {snippets.map((s) => (
+                <li key={s.id} className="group flex items-start gap-3 px-5 py-3 [&+&]:border-t [&+&]:border-line hover:bg-surface-2/60">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-medium">“{s.trigger}”</div>
+                    <p className="mt-0.5 line-clamp-2 text-[12.5px] whitespace-pre-wrap text-fg-3">{s.text}</p>
+                  </div>
+                  <IconButton label="Remove" className="opacity-0 group-hover:opacity-100 hover:text-danger" onClick={() => saveSnippets(snippets.filter((x) => x.id !== s.id))}>
+                    <Trash2 className="size-4" />
+                  </IconButton>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </section>
     </div>
   );
 }

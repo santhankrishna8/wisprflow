@@ -1,5 +1,5 @@
 import { createContext, forwardRef, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { Check, ChevronDown, CircleAlert, Eye, EyeOff, Info, Loader2 } from "lucide-react";
 import { acceleratorKeys, eventToAccelerator } from "../lib/hotkey";
 import { bridge } from "../lib/bridge";
@@ -155,6 +155,13 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   ref
 ) {
   return <input ref={ref} className={cx(fieldBase, className)} {...rest} />;
+});
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
+  { className, ...rest },
+  ref
+) {
+  return <textarea ref={ref} className={cx(fieldBase, "h-auto min-h-20 resize-y py-2 leading-relaxed", className)} {...rest} />;
 });
 
 export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {

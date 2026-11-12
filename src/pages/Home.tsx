@@ -1,7 +1,8 @@
-import { useMemo } from "react";
-import { ArrowRight, Clock, Flame, Gauge, Mic, Square, Type } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, Clock, Flame, Gauge, LifeBuoy, Mic, Square, Type } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button, Card, Hotkey, SectionTitle, cx, EmptyState } from "../components/ui";
+import { Button, Card, Hotkey, SectionTitle, cx, EmptyState, useToast } from "../components/ui";
+import { useUnsent } from "../lib/useApp";
 import { TranscriptRow } from "../components/Transcript";
 import { computeStats, formatDuration, formatNumber } from "../lib/stats";
 import { bridge } from "../lib/bridge";
@@ -28,6 +29,16 @@ export default function Home({
 }) {
   const stats = useMemo(() => computeStats(history), [history]);
   const recent = history.slice(0, 4);
+  const unsent = useUnsent();
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const retry = async (id: string) => {
+    setBusy(id);
+    const r = await bridge.retryRecovery(id);
+    setBusy(null);
+    if (r.ok) toast("Recovered — the text is on your clipboard", "success");
+    else toast(r.error || "Couldn't process that recording", "error");
+  };
   const needsKey = !settings.hasKey?.[settings.sttProvider] && settings.sttProvider !== "custom" && settings.sttProvider !== "local";
 
   return (
@@ -50,6 +61,33 @@ export default function Home({
           </span>
           <ArrowRight className="size-4 text-fg-2" />
         </button>
+      )}
+
+      {unsent.length > 0 && (
+        <div className="mb-5 rounded-xl border border-accent/25 bg-accent-soft px-4 py-3">
+          <div className="flex items-center gap-2 text-[13px] font-semibold">
+            <LifeBuoy className="size-4 text-accent" />
+            {unsent.length === 1 ? "A recording didn't become text" : `${unsent.length} recordings didn't become text`}
+          </div>
+          <p className="mt-0.5 text-[12.5px] text-fg-2">Nothing you said is lost. Retry it now, or discard it. Unsent recordings delete themselves after 24 hours.</p>
+          <ul className="mt-2.5 flex flex-col gap-1.5">
+            {unsent.map((u) => (
+              <li key={u.id} className="flex items-center gap-3 rounded-lg bg-surface/70 px-3 py-2 text-[12.5px]">
+                <span className="tabular-nums text-fg-2">
+                  {new Date(u.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {(u.durationMs / 1000).toFixed(0)}s
+                </span>
+                <span className="ml-auto flex gap-1.5">
+                  <Button size="sm" variant="primary" onClick={() => retry(u.id)} disabled={busy !== null}>
+                    {busy === u.id ? "Working…" : "Retry"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => bridge.discardRecovery(u.id)} disabled={busy !== null}>
+                    Discard
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <Hero state={state} hotkey={settings.hotkey} />

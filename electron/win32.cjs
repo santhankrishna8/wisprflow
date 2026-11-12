@@ -7,8 +7,8 @@ let api; // undefined: not loaded yet, false: unavailable, object: ready
 
 const KEYEVENTF_KEYUP = 0x2;
 const INPUT_KEYBOARD = 1;
-const VK = { SHIFT: 0x10, CONTROL: 0x11, MENU: 0x12, LWIN: 0x5b, RWIN: 0x5c, V: 0x56 };
-const SCAN = { CONTROL: 0x1d, V: 0x2f };
+const VK = { SHIFT: 0x10, CONTROL: 0x11, MENU: 0x12, LWIN: 0x5b, RWIN: 0x5c, V: 0x56, C: 0x43 };
+const SCAN = { CONTROL: 0x1d, V: 0x2f, C: 0x2e };
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const SW_RESTORE = 9;
 
@@ -124,16 +124,20 @@ function key(vk, scan, up) {
   return { type: INPUT_KEYBOARD, u: { ki: { wVk: vk, wScan: scan, dwFlags: up ? KEYEVENTF_KEYUP : 0, time: 0, dwExtraInfo: 0 } } };
 }
 
-/** Press Ctrl+V in the window in front. The four key events go in as one uninterruptible batch. */
-async function pressPaste() {
+/** Press Ctrl+<key> in the window in front. The four key events go in as one uninterruptible batch. */
+async function pressCtrl(vk, scan, what) {
   if (!load()) throw new Error("Native input unavailable.");
   await waitForModifiers();
-  const events = [key(VK.CONTROL, SCAN.CONTROL, false), key(VK.V, SCAN.V, false), key(VK.V, SCAN.V, true), key(VK.CONTROL, SCAN.CONTROL, true)];
+  const events = [key(VK.CONTROL, SCAN.CONTROL, false), key(vk, scan, false), key(vk, scan, true), key(VK.CONTROL, SCAN.CONTROL, true)];
   const sent = api.SendInput(events.length, events, api.koffi.sizeof(api.INPUT));
   if (sent !== events.length) {
     // Windows blocks input into apps running as administrator from a normal app (UIPI).
-    throw new Error("Windows blocked the paste. If that app runs as administrator, run SayType as administrator too.");
+    throw new Error(`Windows blocked the ${what}. If that app runs as administrator, run SayType as administrator too.`);
   }
 }
 
-module.exports = { available, activeWindow, focus, waitForModifiers, pressPaste, loadError: () => loadError };
+const pressPaste = () => pressCtrl(VK.V, SCAN.V, "paste");
+/** Ctrl+C, used by Edit by voice to read the selected text. */
+const pressCopy = () => pressCtrl(VK.C, SCAN.C, "copy");
+
+module.exports = { available, activeWindow, focus, waitForModifiers, pressPaste, pressCopy, loadError: () => loadError };

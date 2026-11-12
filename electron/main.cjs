@@ -22,7 +22,10 @@ const ai = require("./ai.cjs");
 const { isNewer } = require("./version.cjs");
 const { pickAsset, downloadInstaller } = require("./updater.cjs");
 const fs = require("node:fs");
-const { pasteText, warmPaste, stopPasteHelper, activeWindow, lastPaste } = require("./paste.cjs");
+const { pasteText, copySelection, warmPaste, stopPasteHelper, activeWindow, lastPaste } = require("./paste.cjs");
+const { createRecordings } = require("./recordings.cjs");
+const { suggestReplacements } = require("./learn.cjs");
+const { matchSnippet } = require("./snippets.cjs");
 const fmt = require("./format.cjs");
 const { createLocalWhisper } = require("./localWhisper.cjs");
 
@@ -32,6 +35,7 @@ const isMac = process.platform === "darwin";
 
 let store;
 let local; // on-device whisper engine
+let recordings; // audio saved before transcription (recovery)
 let mainWindow = null;
 let overlayWindow = null;
 let bubbleWindow = null;
@@ -44,7 +48,11 @@ let state = { status: "idle", message: "" };
 let activeAbort = null;
 let activeApp = Promise.resolve(null); // the window the user was typing in when dictation started
 let updateInfo = null; // { version, url, canInstall, asset } when a newer release exists
-let registeredHotkey = null;
+const hotkeys = { dictate: null, edit: null }; // currently registered accelerators
+const inFlight = new Set(); // recording ids being transcribed right now
+let mode = "dictate"; // dictate | edit (select text, then speak what to change)
+let editSelection = "";
+let selecting = false;
 
 /**
  * The app used to be called WisprFlow. Carry settings, history, saved keys and
@@ -283,6 +291,10 @@ function broadcast(channel, payload) {
 
 function setState(status, message = "") {
   state = { status, message };
+  if (status === "idle") {
+    mode = "dictate";
+    editSelection = "";
+  }
   // Esc cancels both recording and transcription.
   registerEscape(status === "recording" || status === "processing");
   broadcast("dictation:state", state);
@@ -297,11 +309,13 @@ function registerEscape(on) {
   }
 }
 
-function startDictation() {
+function startDictation(kind = "dictate", selection = "") {
   if (!overlayWindow) return;
+  mode = kind;
+  editSelection = selection;
   positionOverlay();
   overlayWindow.showInactive();
-  setState("recording");
+  setState("recording", kind === "edit" ? "edit" : "");
   registerEscape(true);
   warmPaste();
   const s = store.raw();
@@ -336,6 +350,38 @@ function toggleDictation() {
   else startDictation();
 }
 
+const EDIT_MAX_CHARS = 12000;
+
+/** Edit by voice: copy the selected text, record an instruction, replace the selection with the result. */
+async function toggleEdit() {
+  if (state.status === "recording") return stopDictation();
+  if (state.status === "processing") return cancelDictation();
+  if (selecting) return;
+  const s = store.raw();
+  if (!cleanupReady(s)) {
+    notify("Edit by voice needs AI", "Set up AI cleanup in Settings first (an API key, or Ollama for fully offline).");
+    return;
+  }
+  selecting = true;
+  try {
+    // Windows waits for the shortcut's keys to be released itself; elsewhere give the user a moment,
+    // or the Copy keystroke would be read as e.g. Ctrl+Alt+C.
+    if (process.platform !== "win32") await new Promise((r) => setTimeout(r, 320));
+    const selection = await copySelection(clipboard);
+    if (!selection.trim()) {
+      notify("Select some text first", "Highlight the text you want to change, then press the shortcut and say what to do.");
+    } else if (selection.length > EDIT_MAX_CHARS) {
+      notify("Selection too long", `Select up to ${EDIT_MAX_CHARS.toLocaleString()} characters at a time.`);
+    } else {
+      startDictation("edit", selection);
+    }
+  } catch (err) {
+    notify("Couldn't read the selection", err.message);
+  } finally {
+    selecting = false;
+  }
+}
+
 function hideOverlaySoon(ms) {
   setTimeout(() => {
     if (state.status !== "recording" && state.status !== "processing") {
@@ -345,125 +391,245 @@ function hideOverlaySoon(ms) {
   }, ms);
 }
 
+function cleanupReady(settings) {
+  return settings.llmProvider === "custom" ? Boolean(settings.llmBaseUrl) : Boolean(store.getKey(settings.llmProvider));
+}
+
+/**
+ * Speech → text → dictionary → snippet, or formatting and AI polish. Shared by live dictation,
+ * retrying an unsent recording and re-running a kept one.
+ * @param {{audio: Buffer|ArrayBuffer, mimeType: string, settings: object, dictionary: Array, signal?: AbortSignal,
+ *   win?: object|null, localModel?: string, snippets?: boolean, polish?: boolean}} o
+ */
+async function runPipeline({ audio, mimeType, settings, dictionary, signal, win = null, localModel, snippets = true, polish = true }) {
+  const useLocal = settings.sttProvider === "local";
+  if (useLocal && !/wav/.test(mimeType)) {
+    throw new Error("This recording was made for a cloud provider. Switch Transcription to that provider to use it.");
+  }
+  const language = fmt.normalizeLanguage(settings.language);
+  const context = { ...fmt.resolveContext(settings, win), role: settings.role, about: settings.aboutYou, language };
+  const terms = [
+    ...dictionary.map((d) => d.to || d.word).filter(Boolean),
+    ...(context.kind === "code" || settings.role === "developer" ? fmt.DEV_VOCAB : []),
+  ];
+  const promptFor = (l) => fmt.sttPrompt({ language: l, terms });
+  let raw;
+  if (useLocal) {
+    const r = await local.transcribe({
+      wav: Buffer.from(audio),
+      modelId: localModel || settings.localModel,
+      language,
+      allowed: fmt.LANGUAGE_CODES,
+      promptFor,
+      signal,
+    });
+    raw = r.text;
+    if (r.language !== "auto") context.language = r.language;
+  } else {
+    raw = await ai.transcribe({
+      audio: Buffer.from(audio),
+      mimeType,
+      settings: { ...settings, language },
+      apiKey: store.getKey(settings.sttProvider),
+      prompt: promptFor(language),
+      signal,
+    });
+  }
+  raw = ai.applyDictionary(raw, dictionary);
+  if (!raw) throw new Error("No speech detected.");
+
+  const snippet = snippets ? matchSnippet(raw, store.getSnippets()) : null;
+  if (snippet) return { raw, text: snippet.text, cleanupError: null, cleanupRan: false, snippet: snippet.trigger, context };
+
+  const verbatim = settings.tone === "verbatim";
+  // Offline formatting first, so it applies even with no AI key.
+  let text = polish && !verbatim && settings.smartFormat !== false ? ai.applyDictionary(fmt.formatOffline(raw, context), dictionary) : raw;
+  const formatted = text;
+  let cleanupError = null;
+  let cleanupRan = false;
+  // Skip the AI polish quietly when its provider has no key yet (e.g. fully local setups).
+  if (polish && settings.cleanupEnabled && !verbatim && cleanupReady(settings)) {
+    try {
+      text = ai.applyDictionary(
+        await ai.cleanup({ text: formatted, settings, apiKey: store.getKey(settings.llmProvider), dictionary, context, signal }),
+        dictionary
+      );
+      cleanupRan = true;
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      cleanupError = err.message;
+      text = formatted;
+    }
+  }
+  return { raw, text, cleanupError, cleanupRan, snippet: null, context };
+}
+
+const wordCount = (t) => t.split(/\s+/).filter(Boolean).length;
+const audioIds = () => store.getHistory().filter((h) => h.hasAudio).map((h) => h.id);
+const protectedIds = () => new Set([...audioIds(), ...inFlight]);
+
+/** Paste into the window dictation started in, or copy when auto-paste is off. Never throws. */
+async function deliver(settings, text, win, pastedMessage = "Pasted") {
+  if (!settings.autoPaste) {
+    await clipboard.writeText(text);
+    return { output: "copied", message: "Copied" };
+  }
+  try {
+    await pasteText(clipboard, text, { restore: settings.restoreClipboard, target: win });
+    return { output: "pasted", message: pastedMessage };
+  } catch (err) {
+    await clipboard.writeText(text);
+    notify("Copied to clipboard", err.message);
+    return { output: "copied", message: /blocked/.test(err.message) ? "Windows blocked the paste — press Ctrl+V" : "Couldn't paste — press Ctrl+V" };
+  }
+}
+
 async function processAudio(_e, { audio, mimeType, durationMs }) {
   const settings = store.raw();
   const dictionary = store.getDictionary();
-  setState("processing");
+  const editing = mode === "edit";
+  const selection = editSelection;
+  setState("processing", editing ? "edit" : "");
   const abort = new AbortController();
   activeAbort = abort;
   const t0 = Date.now();
+  const id = crypto.randomUUID();
+  let saved = false;
+  let succeeded = false;
   try {
     if (!audio || audio.byteLength < 1200 || durationMs < 350) {
       setState("idle");
       overlayWindow?.hide();
       return { ok: false, error: "Too short — hold on a little longer." };
     }
-    const language = fmt.normalizeLanguage(settings.language);
-    const win = await Promise.race([activeApp, new Promise((r) => setTimeout(() => r(null), 800))]);
-    const context = { ...fmt.resolveContext(settings, win), role: settings.role, about: settings.aboutYou, language };
-    const terms = [
-      ...dictionary.map((d) => d.to || d.word).filter(Boolean),
-      ...(context.kind === "code" || settings.role === "developer" ? fmt.DEV_VOCAB : []),
-    ];
-    const promptFor = (l) => fmt.sttPrompt({ language: l, terms });
-    let raw;
-    if (settings.sttProvider === "local") {
-      const r = await local.transcribe({
-        wav: Buffer.from(audio),
-        modelId: settings.localModel,
-        language,
-        allowed: fmt.LANGUAGE_CODES,
-        promptFor,
-        signal: abort.signal,
-      });
-      raw = r.text;
-      if (r.language !== "auto") context.language = r.language;
-    } else {
-      raw = await ai.transcribe({
-        audio: Buffer.from(audio),
-        mimeType,
-        settings: { ...settings, language },
-        apiKey: store.getKey(settings.sttProvider),
-        prompt: promptFor(language),
-        signal: abort.signal,
-      });
-    }
-    raw = ai.applyDictionary(raw, dictionary);
-    if (!raw) throw new Error("No speech detected.");
-
-    const verbatim = settings.tone === "verbatim";
-    // Offline formatting first, so it applies even with no AI key.
-    let text = !verbatim && settings.smartFormat !== false ? ai.applyDictionary(fmt.formatOffline(raw, context), dictionary) : raw;
-    const formatted = text;
-    let cleanupError = null;
-    // Skip the AI polish quietly when its provider has no key yet (e.g. fully local setups).
-    const cleanupReady = settings.llmProvider === "custom" ? Boolean(settings.llmBaseUrl) : Boolean(store.getKey(settings.llmProvider));
-    if (settings.cleanupEnabled && !verbatim && cleanupReady) {
+    // Keep the audio on disk until it has been turned into text. (Edit instructions are never kept.)
+    if (!editing) {
       try {
-        text = ai.applyDictionary(
-          await ai.cleanup({
-            text: formatted,
-            settings,
-            apiKey: store.getKey(settings.llmProvider),
-            dictionary,
-            context,
-            signal: abort.signal,
-          }),
-          dictionary
-        );
-      } catch (err) {
-        if (abort.signal.aborted) throw err;
-        cleanupError = err.message;
-        text = formatted;
+        inFlight.add(id);
+        recordings.save(id, { audio: Buffer.from(audio), mimeType, durationMs });
+        saved = true;
+      } catch {
+        /* disk full or read-only: dictate anyway */
       }
     }
+    const win = await Promise.race([activeApp, new Promise((r) => setTimeout(() => r(null), 800))]);
+
+    if (editing) {
+      const heard = await runPipeline({ audio, mimeType, settings, dictionary, signal: abort.signal, win, snippets: false, polish: false });
+      const edited = await ai.editText({
+        selection,
+        instruction: heard.raw,
+        settings,
+        apiKey: store.getKey(settings.llmProvider),
+        dictionary,
+        signal: abort.signal,
+      });
+      if (abort.signal.aborted) return { ok: false, cancelled: true };
+      const { output, message } = await deliver(settings, edited, win, "Replaced");
+      const entry = store.addHistory({
+        id,
+        createdAt: new Date().toISOString(),
+        text: edited,
+        raw: selection,
+        kind: "edit",
+        instruction: heard.raw,
+        durationMs,
+        processingMs: Date.now() - t0,
+        words: wordCount(edited),
+        cleaned: true,
+        receipt: { ...ai.describeRoute(settings, { cleaned: true }), output },
+      });
+      broadcast("history:added", entry);
+      pruneHistory();
+      succeeded = true;
+      setState("done", message);
+      hideOverlaySoon(900);
+      return { ok: true, entry };
+    }
+
+    const r = await runPipeline({ audio, mimeType, settings, dictionary, signal: abort.signal, win });
     if (abort.signal.aborted) return { ok: false, cancelled: true };
 
+    const keep = settings.keepAudio && saved;
     const entry = store.addHistory({
-      id: crypto.randomUUID(),
+      id,
       createdAt: new Date().toISOString(),
-      text,
-      raw,
+      text: r.text,
+      raw: r.raw,
       durationMs,
       processingMs: Date.now() - t0,
-      words: text.split(/\s+/).filter(Boolean).length,
-      cleaned: text !== raw,
-      context: context.kind,
+      words: wordCount(r.text),
+      cleaned: r.text !== r.raw,
+      context: r.context.kind,
+      hasAudio: keep || undefined,
     });
+    succeeded = true;
+    if (saved && !keep) recordings.remove(id);
     broadcast("history:added", entry);
     pruneHistory();
 
     // Paste first, then report what really happened (the overlay used to say "Pasted" before pasting).
-    let message = settings.autoPaste ? "Pasted" : "Copied";
-    if (settings.autoPaste) {
-      try {
-        await pasteText(clipboard, text, { restore: settings.restoreClipboard, target: win });
-      } catch (err) {
-        await clipboard.writeText(text);
-        message = /blocked/.test(err.message) ? "Windows blocked the paste — press Ctrl+V" : "Couldn't paste — press Ctrl+V";
-        notify("Copied to clipboard", err.message);
-      }
-    } else {
-      await clipboard.writeText(text);
-    }
-    if (cleanupError && message === "Pasted") message = "Pasted without AI polish";
+    const { output, message: delivered } = await deliver(settings, r.text, win);
+    let message = delivered;
+    if (r.cleanupError && message === "Pasted") message = "Pasted without AI polish";
+    const receipt = { ...ai.describeRoute(settings, { cleaned: r.cleanupRan }), output, ...(r.snippet ? { snippet: r.snippet } : {}) };
+    const withReceipt = store.updateHistory(id, { receipt });
+    if (withReceipt) broadcast("history:updated", withReceipt);
     setState("done", message);
-    hideOverlaySoon(cleanupError ? 2200 : 900);
-    return { ok: true, entry, cleanupError };
+    hideOverlaySoon(r.cleanupError ? 2200 : 900);
+    return { ok: true, entry: withReceipt || entry, cleanupError: r.cleanupError };
   } catch (err) {
     if (abort.signal.aborted) return { ok: false, cancelled: true };
     setState("error", err.message);
     hideOverlaySoon(3200);
+    // The recording stays on disk: Home offers to retry it.
+    broadcast("recovery:changed");
     return { ok: false, error: err.message };
   } finally {
     if (activeAbort === abort) activeAbort = null;
+    inFlight.delete(id);
+    // Cancelled on purpose: nothing to recover.
+    if (saved && !succeeded && abort.signal.aborted) recordings.remove(id);
   }
 }
 
-/** Delete history older than the user's retention setting and tell the UI. */
+/** Run a stored recording through the pipeline again (retry an unsent one, or make an alternative version). */
+async function reprocess(id, { localModel, context } = {}) {
+  const rec = recordings.read(id);
+  if (!rec) return { ok: false, error: "That recording is no longer on this device." };
+  if (inFlight.has(id)) return { ok: false, error: "Already processing." };
+  const settings = store.raw();
+  inFlight.add(id);
+  try {
+    const t0 = Date.now();
+    const r = await runPipeline({
+      audio: rec.audio,
+      mimeType: rec.mimeType,
+      // Keep the format the dictation was made in (email, code, …) when it is known.
+      settings: context && context !== "other" ? { ...settings, formatMode: context } : settings,
+      dictionary: store.getDictionary(),
+      signal: AbortSignal.timeout(180_000),
+      localModel,
+      snippets: false,
+    });
+    return { ok: true, rec, r, ms: Date.now() - t0 };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    inFlight.delete(id);
+  }
+}
+
+/** Delete history older than the user's retention setting (and the audio kept with it) and tell the UI. */
 function pruneHistory() {
+  const before = audioIds();
   const removed = store.pruneHistory(RETENTION_MS[store.raw().historyRetention] || 0);
-  if (removed) broadcast("history:replaced", store.getHistory());
+  if (removed) {
+    const after = new Set(audioIds());
+    for (const id of before) if (!after.has(id)) recordings.remove(id);
+    broadcast("history:replaced", store.getHistory());
+  }
+  if (recordings.sweep(protectedIds())) broadcast("recovery:changed");
 }
 
 const RELEASES_API = "https://api.github.com/repos/santhankrishna8/wisprflow/releases/latest";
@@ -566,28 +732,32 @@ function notify(title, body) {
   if (Notification.isSupported()) new Notification({ title, body, silent: true }).show();
 }
 
-function registerHotkey(accelerator) {
-  if (registeredHotkey) {
+const HOTKEY_HANDLERS = { dictate: () => toggleDictation(), edit: () => toggleEdit() };
+
+function registerHotkey(kind, accelerator) {
+  const prev = hotkeys[kind];
+  if (prev) {
     try {
-      globalShortcut.unregister(registeredHotkey);
+      globalShortcut.unregister(prev);
     } catch {
       /* ignore */
     }
   }
   let ok = false;
   try {
-    ok = globalShortcut.register(accelerator, toggleDictation);
+    ok = Boolean(accelerator) && globalShortcut.register(accelerator, HOTKEY_HANDLERS[kind]);
   } catch {
     ok = false;
   }
   if (ok) {
-    registeredHotkey = accelerator;
+    hotkeys[kind] = accelerator;
     return { ok: true };
   }
   // Restore previous binding on failure.
-  if (registeredHotkey && registeredHotkey !== accelerator) {
+  hotkeys[kind] = null;
+  if (prev && prev !== accelerator) {
     try {
-      globalShortcut.register(registeredHotkey, toggleDictation);
+      if (globalShortcut.register(prev, HOTKEY_HANDLERS[kind])) hotkeys[kind] = prev;
     } catch {
       /* ignore */
     }
@@ -607,7 +777,7 @@ function updateTray() {
   tray.setToolTip(recording ? "SayType — listening…" : "SayType");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: recording ? "Stop dictation" : "Start dictation", accelerator: registeredHotkey || undefined, click: toggleDictation },
+      { label: recording ? "Stop dictation" : "Start dictation", accelerator: hotkeys.dictate || undefined, click: toggleDictation },
       { type: "separator" },
       ...(updateInfo
         ? [{ label: updateInfo.canInstall ? `Install update — v${updateInfo.version}` : `Update available — v${updateInfo.version}`, click: () => (showMain("home"), installUpdate()) }]
@@ -739,10 +909,13 @@ function registerIpc() {
   });
   ipcMain.handle("settings:setKey", (_e, provider, value) => store.setKey(provider, String(value || "").trim()));
   ipcMain.handle("settings:test", testConnection);
-  ipcMain.handle("hotkey:set", (_e, accel) => {
-    const r = registerHotkey(accel);
+  ipcMain.handle("hotkey:set", (_e, accel, kind = "dictate") => {
+    if (kind !== "dictate" && kind !== "edit") return { ok: false, error: "Unknown shortcut." };
+    const other = kind === "dictate" ? hotkeys.edit : hotkeys.dictate;
+    if (other && other === accel) return { ok: false, error: "That shortcut is already used for the other action." };
+    const r = registerHotkey(kind, accel);
     if (r.ok) {
-      store.setSettings({ hotkey: accel });
+      store.setSettings(kind === "edit" ? { editHotkey: accel } : { hotkey: accel });
       updateTray();
       broadcast("settings:changed", store.getSettings());
     }
@@ -750,13 +923,98 @@ function registerIpc() {
   });
   ipcMain.handle("hotkey:suspend", (_e, suspend) => {
     // Temporarily release the hotkey while the user records a new one.
-    if (suspend && registeredHotkey) globalShortcut.unregister(registeredHotkey);
-    else if (!suspend && registeredHotkey) registerHotkey(registeredHotkey);
+    for (const kind of ["dictate", "edit"]) {
+      if (suspend && hotkeys[kind]) globalShortcut.unregister(hotkeys[kind]);
+      else if (!suspend && hotkeys[kind]) registerHotkey(kind, hotkeys[kind]);
+    }
   });
 
   ipcMain.handle("history:get", () => store.getHistory());
-  ipcMain.handle("history:delete", (_e, id) => store.deleteHistory(id));
-  ipcMain.handle("history:clear", () => store.clearHistory());
+  ipcMain.handle("history:delete", (_e, id) => {
+    store.deleteHistory(id);
+    recordings.remove(id);
+  });
+  ipcMain.handle("history:clear", () => {
+    for (const id of audioIds()) recordings.remove(id);
+    store.clearHistory();
+  });
+  // Fix a transcript by hand; suggest dictionary entries for the words that changed (nothing saved until confirmed).
+  ipcMain.handle("history:edit", (_e, id, text) => {
+    const entry = store.getHistoryEntry(id);
+    const next = String(text || "").trim();
+    if (!entry || !next || next === entry.text) return { entry, suggestions: [] };
+    const updated = store.updateHistory(id, { text: next, words: wordCount(next), edited: true });
+    broadcast("history:updated", updated);
+    return { entry: updated, suggestions: suggestReplacements(entry.text, next, store.getDictionary()) };
+  });
+  // Run the saved recording again (optionally on another on-device model) and keep both versions side by side.
+  ipcMain.handle("history:reprocess", async (_e, id, opts) => {
+    const entry = store.getHistoryEntry(id);
+    if (!entry?.hasAudio) return { ok: false, error: "This dictation has no saved recording. Turn on “Keep recordings” in Settings." };
+    const localModel = typeof opts?.localModel === "string" ? opts.localModel : undefined;
+    const res = await reprocess(id, { localModel, context: entry.context });
+    if (!res.ok) return res;
+    const settings = store.raw();
+    const model = settings.sttProvider === "local" ? localModel || settings.localModel : settings.sttModel || "whisper-1";
+    const updated = store.updateHistory(id, {
+      alt: { text: res.r.text, raw: res.r.raw, model, provider: settings.sttProvider, processingMs: res.ms },
+    });
+    broadcast("history:updated", updated);
+    return { ok: true, entry: updated };
+  });
+  ipcMain.handle("history:useAlt", (_e, id) => {
+    const entry = store.getHistoryEntry(id);
+    if (!entry?.alt) return entry;
+    const updated = store.updateHistory(id, {
+      text: entry.alt.text,
+      raw: entry.alt.raw,
+      words: wordCount(entry.alt.text),
+      cleaned: entry.alt.text !== entry.alt.raw,
+      alt: undefined,
+    });
+    broadcast("history:updated", updated);
+    return updated;
+  });
+  ipcMain.handle("history:dropAlt", (_e, id) => {
+    const updated = store.updateHistory(id, { alt: undefined });
+    if (updated) broadcast("history:updated", updated);
+    return updated;
+  });
+
+  // Recordings that never became text (provider error, closed window, crash): retry or discard.
+  ipcMain.handle("recovery:list", () => recordings.unsent(protectedIds()));
+  ipcMain.handle("recovery:retry", async (_e, id) => {
+    const res = await reprocess(id);
+    if (!res.ok) return res;
+    const settings = store.raw();
+    const keep = settings.keepAudio;
+    const entry = store.addHistory({
+      id: res.rec.id,
+      createdAt: res.rec.createdAt,
+      text: res.r.text,
+      raw: res.r.raw,
+      durationMs: res.rec.durationMs,
+      processingMs: res.ms,
+      words: wordCount(res.r.text),
+      cleaned: res.r.text !== res.r.raw,
+      context: res.r.context.kind,
+      hasAudio: keep || undefined,
+      recovered: true,
+      receipt: { ...ai.describeRoute(settings, { cleaned: res.r.cleanupRan }), output: "copied" },
+    });
+    if (!keep) recordings.remove(res.rec.id);
+    await clipboard.writeText(res.r.text); // our window has focus now, so don't paste: put it on the clipboard
+    broadcast("history:added", entry);
+    broadcast("recovery:changed");
+    return { ok: true, entry };
+  });
+  ipcMain.handle("recovery:discard", (_e, id) => {
+    if (!inFlight.has(id)) recordings.remove(id);
+    broadcast("recovery:changed");
+  });
+
+  ipcMain.handle("snippets:get", () => store.getSnippets());
+  ipcMain.handle("snippets:set", (_e, list) => store.setSnippets(list));
   ipcMain.handle("dictionary:get", () => store.getDictionary());
   ipcMain.handle("dictionary:set", (_e, list) => store.setDictionary(list));
 
@@ -848,6 +1106,7 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   store = createStore(app, safeStorage);
+  recordings = createRecordings(path.join(app.getPath("userData"), "recordings"));
   local = createLocalWhisper({
     binDir: app.isPackaged
       ? path.join(process.resourcesPath, "whisper")
@@ -877,8 +1136,10 @@ app.whenReady().then(() => {
   screen.on("display-removed", () => {
     applyBubbleLayout();
   });
-  const r = registerHotkey(store.raw().hotkey);
+  const r = registerHotkey("dictate", store.raw().hotkey);
   if (!r.ok) notify("Hotkey unavailable", r.error + " Choose another in Settings.");
+  const re = registerHotkey("edit", store.raw().editHotkey);
+  if (!re.ok) notify("Edit shortcut unavailable", re.error + " Choose another in Settings.");
   try {
     tray = new Tray(trayIcon());
     tray.on("click", () => (isMac ? tray.popUpContextMenu() : showMain()));

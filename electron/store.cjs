@@ -6,6 +6,7 @@ const path = require("node:path");
 const DEFAULT_SETTINGS = {
   onboarded: false,
   hotkey: "CommandOrControl+Shift+Space",
+  editHotkey: "CommandOrControl+Alt+Space", // select text, press, say what to change
   language: "auto", // auto | en | hi | te | ta | kn
   sttProvider: "local", // local | openai | groq | custom
   localModel: "base", // on-device whisper model id
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS = {
   llmModel: "gpt-4o-mini",
   llmBaseUrl: "",
   tone: "natural", // natural | professional | casual | verbatim
+  keepAudio: false, // keep each recording with its history entry (enables re-run / compare)
   smartFormat: true, // offline formatting: spoken commands, fillers, developer terms
   formatMode: "auto", // auto (from the active app) | message | email | notes | code | prompt | other
   useAppContext: true, // look at the active app's name and window title to pick a format
@@ -38,7 +40,7 @@ const DEFAULT_SETTINGS = {
 function createStore(app, safeStorage) {
   const dir = app.getPath("userData");
   const file = path.join(dir, "saytype-data.json");
-  let data = { settings: { ...DEFAULT_SETTINGS }, history: [], dictionary: [] };
+  let data = { settings: { ...DEFAULT_SETTINGS }, history: [], dictionary: [], snippets: [] };
 
   try {
     // Installs from before the rename kept their data under the old file name.
@@ -48,6 +50,7 @@ function createStore(app, safeStorage) {
       settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
       history: Array.isArray(raw.history) ? raw.history : [],
       dictionary: Array.isArray(raw.dictionary) ? raw.dictionary : [],
+      snippets: Array.isArray(raw.snippets) ? raw.snippets : [],
     };
   } catch (err) {
     if (err.code !== "ENOENT") {
@@ -121,6 +124,16 @@ function createStore(app, safeStorage) {
       save();
       return entry;
     },
+    getHistoryEntry: (id) => data.history.find((h) => h.id === id) || null,
+    /** Merge a patch into one entry (text edits, alternative versions). Returns the updated entry. */
+    updateHistory(id, patch) {
+      const i = data.history.findIndex((h) => h.id === id);
+      if (i < 0) return null;
+      data.history[i] = { ...data.history[i], ...patch };
+      for (const k of Object.keys(data.history[i])) if (data.history[i][k] === undefined) delete data.history[i][k];
+      save();
+      return data.history[i];
+    },
     deleteHistory(id) {
       data.history = data.history.filter((h) => h.id !== id);
       save();
@@ -144,6 +157,14 @@ function createStore(app, safeStorage) {
       data.dictionary = Array.isArray(list) ? list : [];
       save();
       return data.dictionary;
+    },
+    getSnippets: () => data.snippets,
+    setSnippets(list) {
+      data.snippets = (Array.isArray(list) ? list : [])
+        .map((s) => ({ id: String(s.id), trigger: String(s.trigger || "").trim().slice(0, 80), text: String(s.text || "").slice(0, 20000) }))
+        .filter((s) => s.trigger && s.text);
+      save();
+      return data.snippets;
     },
     flush() {
       if (timer) {

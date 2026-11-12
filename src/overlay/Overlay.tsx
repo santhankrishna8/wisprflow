@@ -149,6 +149,9 @@ export default function Overlay() {
             <span ref={timeRef} className="w-9 text-center font-mono text-[12px] text-white/60 tabular-nums">
               0:00
             </span>
+            {state.message === "edit" && (
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80">Say what to change</span>
+            )}
             <button
               onClick={() => bridge.toggleDictation()}
               aria-label="Finish"
@@ -176,7 +179,7 @@ export default function Overlay() {
                 animation: "shimmer 1.8s linear infinite",
               }}
             >
-              {waited >= 2 ? `Transcribing… ${waited}s` : "Transcribing…"}
+              {state.message === "edit" ? "Editing…" : waited >= 2 ? `Transcribing… ${waited}s` : "Transcribing…"}
             </span>
             {waited >= 10 && <span className="max-w-[150px] text-[10.5px] leading-tight text-white/65">Large models are slow on a CPU. Groq is much faster.</span>}
             <button

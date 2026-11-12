@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { bridge } from "./bridge";
-import type { DictationState, HistoryEntry, Settings, UpdateInfo, UpdateProgress } from "./bridge";
+import type { DictationState, HistoryEntry, Settings, UnsentRecording, UpdateInfo, UpdateProgress } from "./bridge";
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -22,9 +22,11 @@ export function useHistory() {
     bridge.getHistory().then((h) => setHistory([...h]));
     const offAdded = bridge.onHistoryAdded((e) => setHistory((h) => [e, ...h.filter((x) => x.id !== e.id)]));
     const offReplaced = bridge.onHistoryReplaced((list) => setHistory([...list]));
+    const offUpdated = bridge.onHistoryUpdated((e) => setHistory((h) => h.map((x) => (x.id === e.id ? e : x))));
     return () => {
       offAdded();
       offReplaced();
+      offUpdated();
     };
   }, []);
   const remove = useCallback(async (id: string) => {
@@ -36,6 +38,17 @@ export function useHistory() {
     await bridge.clearHistory();
   }, []);
   return { history, remove, clear };
+}
+
+/** Recordings that never became text, so Home can offer to retry them. */
+export function useUnsent() {
+  const [list, setList] = useState<UnsentRecording[]>([]);
+  const refresh = useCallback(() => bridge.listRecovery().then(setList).catch(() => {}), []);
+  useEffect(() => {
+    refresh();
+    return bridge.onRecoveryChanged(refresh);
+  }, [refresh]);
+  return list;
 }
 
 export function useDictationState() {

@@ -55,7 +55,7 @@ function warmPaste() {
   }
 }
 
-async function pasteViaHelper() {
+async function keyViaHelper(key) {
   const h = psHelper();
   clearTimeout(h.idle);
   h.idle = setTimeout(() => h.proc.kill(), PS_IDLE_MS);
@@ -63,7 +63,7 @@ async function pasteViaHelper() {
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("paste helper timed out")), 4000);
     h.waiting.push({ resolve: () => (clearTimeout(timer), resolve()), reject: (e) => (clearTimeout(timer), reject(e)) });
-    h.proc.stdin.write("$w.SendKeys('^v'); 'wf-ok'\n");
+    h.proc.stdin.write(`$w.SendKeys('^${key}'); 'wf-ok'\n`);
   });
 }
 
@@ -100,14 +100,15 @@ async function simulatePaste(target) {
   }
 }
 
-async function legacyPaste() {
+/** Send Ctrl/Cmd + key ("v" paste, "c" copy) with the platform's own tools. */
+async function legacyPaste(key = "v") {
   if (process.platform === "darwin") {
-    await run("osascript", ["-e", 'tell application "System Events" to keystroke "v" using command down']);
+    await run("osascript", ["-e", `tell application "System Events" to keystroke "${key}" using command down`]);
     return;
   }
   if (process.platform === "win32") {
     try {
-      await pasteViaHelper();
+      await keyViaHelper(key);
       return;
     } catch {
       try {
@@ -121,15 +122,16 @@ async function legacyPaste() {
       "-NoProfile",
       "-NonInteractive",
       "-Command",
-      "(New-Object -ComObject WScript.Shell).SendKeys('^v')",
+      `(New-Object -ComObject WScript.Shell).SendKeys('^${key}')`,
     ]);
     return;
   }
   // Linux: try Wayland and X11 tools in order.
   const wayland = Boolean(process.env.WAYLAND_DISPLAY);
+  const code = key === "c" ? "46" : "47"; // evdev key codes for ydotool
   const attempts = wayland
-    ? [["wtype", ["-M", "ctrl", "v", "-m", "ctrl"]], ["ydotool", ["key", "29:1", "47:1", "47:0", "29:0"]], ["xdotool", ["key", "--clearmodifiers", "ctrl+v"]]]
-    : [["xdotool", ["key", "--clearmodifiers", "ctrl+v"]], ["ydotool", ["key", "29:1", "47:1", "47:0", "29:0"]]];
+    ? [["wtype", ["-M", "ctrl", key, "-m", "ctrl"]], ["ydotool", ["key", "29:1", `${code}:1`, `${code}:0`, "29:0"]], ["xdotool", ["key", "--clearmodifiers", `ctrl+${key}`]]]
+    : [["xdotool", ["key", "--clearmodifiers", `ctrl+${key}`]], ["ydotool", ["key", "29:1", `${code}:1`, `${code}:0`, "29:0"]]];
   let lastErr;
   for (const [cmd, args] of attempts) {
     try {
@@ -140,7 +142,7 @@ async function legacyPaste() {
     }
   }
   throw new Error(
-    `Couldn't simulate paste (install ${wayland ? "wtype or ydotool" : "xdotool"}). Text is on your clipboard.`
+    `Couldn't simulate ${key === "c" ? "copy" : "paste"} (install ${wayland ? "wtype or ydotool" : "xdotool"}).${key === "c" ? "" : " Text is on your clipboard."}`
   );
 }
 
@@ -184,6 +186,45 @@ async function pasteText(clipboard, text, { restore = true, target = null } = {}
   }
 }
 
+async function simulateCopy() {
+  if (process.platform === "win32" && win32.available()) {
+    try {
+      await win32.pressCopy();
+      return;
+    } catch (err) {
+      if (/blocked/.test(err.message)) throw err;
+    }
+  }
+  await legacyPaste("c");
+}
+
+/**
+ * Read the text currently selected in the focused app by pressing Copy, then put the
+ * user's clipboard back as it was (text only, like the rest of paste.cjs).
+ * Returns "" when nothing was selected.
+ */
+async function copySelection(clipboard) {
+  const previous = await snapshot(clipboard);
+  const probe = `saytype-selection-probe-${Date.now()}`;
+  await clipboard.writeText(probe);
+  try {
+    await sleep(40);
+    await simulateCopy();
+    let text = probe;
+    for (let i = 0; i < 12 && text === probe; i++) {
+      await sleep(50);
+      text = await clipboard.readText();
+    }
+    return text === probe ? "" : text;
+  } finally {
+    try {
+      await clipboard.writeText(previous ? previous.text : "");
+    } catch {
+      /* leave the clipboard as it is */
+    }
+  }
+}
+
 /** Stop the helper (app quit). */
 function stopPasteHelper() {
   try {
@@ -223,4 +264,4 @@ async function activeWindow() {
   }
 }
 
-module.exports = { pasteText, warmPaste, stopPasteHelper, activeWindow, simulatePaste, lastPaste: () => last, snapshot, restoreSnapshot };
+module.exports = { pasteText, copySelection, warmPaste, stopPasteHelper, activeWindow, simulatePaste, lastPaste: () => last, snapshot, restoreSnapshot };

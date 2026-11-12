@@ -86,13 +86,26 @@ function General({ settings, update }: Props) {
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <SectionTitle title="Shortcut" description="Press once to start dictating, press again to paste." />
+        <SectionTitle title="Shortcuts" description="Press once to start dictating, press again to paste." />
         <Card>
           <Row title="Dictation shortcut" description="Works system-wide, in any app. Press Esc while recording to cancel.">
             <HotkeyRecorder
               value={settings.hotkey}
               onSave={async (accel) => {
                 const r = await bridge.setHotkey(accel);
+                if (r.ok) toast("Shortcut updated", "success");
+                return r.ok ? null : r.error || "Couldn't register shortcut";
+              }}
+            />
+          </Row>
+          <Row
+            title="Edit by voice"
+            description="Select text in any app, press this, and say what to change: “make it shorter”, “translate to Spanish”, “more polite”. Needs AI cleanup to be set up."
+          >
+            <HotkeyRecorder
+              value={settings.editHotkey}
+              onSave={async (accel) => {
+                const r = await bridge.setHotkey(accel, "edit");
                 if (r.ok) toast("Shortcut updated", "success");
                 return r.ok ? null : r.error || "Couldn't register shortcut";
               }}
@@ -115,6 +128,12 @@ function General({ settings, update }: Props) {
             description="A slim handle at the edge of your screen. Click it once to start dictating; it grows into a pill, and clicking the pill finishes. Drag it to move it."
           >
             <Switch checked={settings.showBubble} onChange={(v) => update({ showBubble: v })} label="Edge handle" />
+          </Row>
+          <Row
+            title="Keep recordings with history"
+            description="Save the audio next to each dictation so you can run it again on a different model and compare. Off by default; deleted with the dictation. Recordings that fail are always kept for 24 hours so nothing is lost."
+          >
+            <Switch checked={settings.keepAudio} onChange={(v) => update({ keepAudio: v })} label="Keep recordings" />
           </Row>
           <Row title="Sound effects" description="Soft chimes when recording starts and stops.">
             <Switch checked={settings.soundEffects} onChange={(v) => update({ soundEffects: v })} label="Sound effects" />

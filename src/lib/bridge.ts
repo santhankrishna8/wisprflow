@@ -13,6 +13,7 @@ export type Status = "idle" | "recording" | "processing" | "done" | "error";
 export interface Settings {
   onboarded: boolean;
   hotkey: string;
+  editHotkey: string;
   language: string;
   sttProvider: SttProvider;
   localModel: string;
@@ -23,6 +24,7 @@ export interface Settings {
   llmModel: string;
   llmBaseUrl: string;
   tone: Tone;
+  keepAudio: boolean;
   smartFormat: boolean;
   formatMode: FormatMode;
   useAppContext: boolean;
@@ -53,6 +55,48 @@ export interface HistoryEntry {
   cleaned: boolean;
   /** The kind of app it was formatted for. */
   context?: string;
+  kind?: "edit"; // edited a selection by voice (raw = the original selection)
+  instruction?: string;
+  edited?: boolean; // text was corrected by hand
+  recovered?: boolean; // transcribed later from an unsent recording
+  hasAudio?: boolean; // recording kept on this device (Settings → Keep recordings)
+  receipt?: Receipt;
+  alt?: AlternativeVersion;
+}
+
+/** What happened to one dictation: which engines ran and whether anything left this PC. */
+export interface Receipt {
+  stt: { provider: string; model: string; leavesDevice: boolean };
+  cleanup: { provider: string; model: string; leavesDevice: boolean } | null;
+  leavesDevice: boolean;
+  output: "pasted" | "copied";
+  snippet?: string;
+}
+
+export interface AlternativeVersion {
+  text: string;
+  raw: string;
+  model: string;
+  provider: string;
+  processingMs: number;
+}
+
+export interface UnsentRecording {
+  id: string;
+  createdAt: string;
+  durationMs: number;
+  bytes: number;
+}
+
+export interface Snippet {
+  id: string;
+  trigger: string;
+  text: string;
+}
+
+export interface Suggestion {
+  word: string;
+  to: string;
 }
 
 export interface PasteReport {
@@ -130,7 +174,7 @@ export interface BridgeApi {
   setSettings(patch: Partial<Settings>): Promise<Settings>;
   setKey(provider: string, value: string): Promise<Settings>;
   testConnection(kind: "stt" | "llm"): Promise<{ ok: boolean; error?: string; message?: string }>;
-  setHotkey(accel: string): Promise<{ ok: boolean; error?: string }>;
+  setHotkey(accel: string, kind?: "dictate" | "edit"): Promise<{ ok: boolean; error?: string }>;
   suspendHotkey(suspend: boolean): Promise<void>;
   onSettings(cb: (s: Settings) => void): Unsub;
   getHistory(): Promise<HistoryEntry[]>;
@@ -138,6 +182,17 @@ export interface BridgeApi {
   clearHistory(): Promise<void>;
   onHistoryAdded(cb: (e: HistoryEntry) => void): Unsub;
   onHistoryReplaced(cb: (list: HistoryEntry[]) => void): Unsub;
+  onHistoryUpdated(cb: (e: HistoryEntry) => void): Unsub;
+  editHistory(id: string, text: string): Promise<{ entry: HistoryEntry | null; suggestions: Suggestion[] }>;
+  reprocessHistory(id: string, opts?: { localModel?: string }): Promise<{ ok: boolean; error?: string; entry?: HistoryEntry }>;
+  useAlternative(id: string): Promise<HistoryEntry | null>;
+  dropAlternative(id: string): Promise<HistoryEntry | null>;
+  listRecovery(): Promise<UnsentRecording[]>;
+  retryRecovery(id: string): Promise<{ ok: boolean; error?: string; entry?: HistoryEntry }>;
+  discardRecovery(id: string): Promise<void>;
+  onRecoveryChanged(cb: () => void): Unsub;
+  getSnippets(): Promise<Snippet[]>;
+  setSnippets(list: Snippet[]): Promise<Snippet[]>;
   getDictionary(): Promise<DictionaryEntry[]>;
   setDictionary(list: DictionaryEntry[]): Promise<DictionaryEntry[]>;
   toggleDictation(): Promise<void>;
@@ -220,7 +275,18 @@ function createMock(): BridgeApi {
         processingMs: 900,
         words: text.split(/\s+/).length,
         cleaned: true,
+        hasAudio: i === 0 || i === 2,
+        receipt: {
+          stt: { provider: "local", model: "base", leavesDevice: false },
+          cleanup: i % 2 ? { provider: "openai", model: "gpt-4o-mini", leavesDevice: true } : null,
+          leavesDevice: i % 2 === 1,
+          output: "pasted" as const,
+        },
       }));
+  let snippets: Snippet[] = [{ id: "s1", trigger: "my signature", text: "Best regards,\nAdithya" }];
+  let unsent: UnsentRecording[] = params.has("recovery")
+    ? [{ id: "u1", createdAt: new Date(now - 4 * 60_000).toISOString(), durationMs: 18400, bytes: 590000 }]
+    : [];
   let dictionary: DictionaryEntry[] = [
     { id: "a", word: "Adithya" },
     { id: "b", word: "kubernetes", to: "Kubernetes" },
@@ -229,6 +295,7 @@ function createMock(): BridgeApi {
   let settings: Settings = {
     onboarded: !params.has("onboarding"),
     hotkey: "CommandOrControl+Shift+Space",
+    editHotkey: "CommandOrControl+Alt+Space",
     language: "auto",
     sttProvider: (params.get("stt") as SttProvider) || "local",
     localModel: "base",
@@ -239,6 +306,7 @@ function createMock(): BridgeApi {
     llmModel: "gpt-4o-mini",
     llmBaseUrl: "",
     tone: "natural",
+    keepAudio: false,
     smartFormat: true,
     formatMode: "auto",
     useAppContext: true,
@@ -305,6 +373,57 @@ function createMock(): BridgeApi {
     },
     onHistoryAdded: on("history"),
     onHistoryReplaced: on("historyReplaced"),
+    onHistoryUpdated: on("historyUpdated"),
+    editHistory: async (id, text) => {
+      const old = history.find((h) => h.id === id);
+      if (!old) return { entry: null, suggestions: [] };
+      const entry = { ...old, text, edited: true, words: text.split(/\s+/).length };
+      history = history.map((h) => (h.id === id ? entry : h));
+      emit("historyUpdated", entry);
+      const [a, b] = [old.text.split(/\s+/), text.split(/\s+/)];
+      const i = a.findIndex((w, k) => w !== b[k]);
+      const clean = (w: string) => w.replace(/[^\p{L}\p{N}]/gu, "");
+      return { entry, suggestions: i >= 0 && a.length === b.length ? [{ word: clean(a[i]), to: clean(b[i]) }] : [] };
+    },
+    reprocessHistory: async (id, opts) => {
+      await wait(900);
+      const old = history.find((h) => h.id === id);
+      if (!old) return { ok: false, error: "Not found" };
+      const entry = { ...old, alt: { text: old.text.replace(/\.$/, "") + " — (re-run)", raw: old.raw, model: opts?.localModel || "small", provider: "local", processingMs: 1400 } };
+      history = history.map((h) => (h.id === id ? entry : h));
+      emit("historyUpdated", entry);
+      return { ok: true, entry };
+    },
+    useAlternative: async (id) => {
+      const old = history.find((h) => h.id === id);
+      if (!old?.alt) return null;
+      const entry = { ...old, text: old.alt.text, alt: undefined };
+      history = history.map((h) => (h.id === id ? entry : h));
+      emit("historyUpdated", entry);
+      return entry;
+    },
+    dropAlternative: async (id) => {
+      const old = history.find((h) => h.id === id);
+      if (!old) return null;
+      const entry = { ...old, alt: undefined };
+      history = history.map((h) => (h.id === id ? entry : h));
+      emit("historyUpdated", entry);
+      return entry;
+    },
+    listRecovery: async () => unsent,
+    retryRecovery: async (id) => {
+      await wait(1000);
+      unsent = unsent.filter((u) => u.id !== id);
+      emit("recovery");
+      return { ok: true };
+    },
+    discardRecovery: async (id) => {
+      unsent = unsent.filter((u) => u.id !== id);
+      emit("recovery");
+    },
+    onRecoveryChanged: on("recovery"),
+    getSnippets: async () => snippets,
+    setSnippets: async (list) => (snippets = list),
     getDictionary: async () => dictionary,
     setDictionary: async (list) => (dictionary = list),
     toggleDictation: async () => {

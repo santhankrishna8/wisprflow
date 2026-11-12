@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld("saytype", {
   setSettings: (patch) => ipcRenderer.invoke("settings:set", patch),
   setKey: (provider, value) => ipcRenderer.invoke("settings:setKey", provider, value),
   testConnection: (kind) => ipcRenderer.invoke("settings:test", kind),
-  setHotkey: (accel) => ipcRenderer.invoke("hotkey:set", accel),
+  setHotkey: (accel, kind) => ipcRenderer.invoke("hotkey:set", accel, kind),
   suspendHotkey: (suspend) => ipcRenderer.invoke("hotkey:suspend", suspend),
   onSettings: on("settings:changed"),
 
@@ -23,6 +23,19 @@ contextBridge.exposeInMainWorld("saytype", {
   clearHistory: () => ipcRenderer.invoke("history:clear"),
   onHistoryAdded: on("history:added"),
   onHistoryReplaced: on("history:replaced"),
+  onHistoryUpdated: on("history:updated"),
+  editHistory: (id, text) => ipcRenderer.invoke("history:edit", id, text),
+  reprocessHistory: (id, opts) => ipcRenderer.invoke("history:reprocess", id, opts),
+  useAlternative: (id) => ipcRenderer.invoke("history:useAlt", id),
+  dropAlternative: (id) => ipcRenderer.invoke("history:dropAlt", id),
+
+  listRecovery: () => ipcRenderer.invoke("recovery:list"),
+  retryRecovery: (id) => ipcRenderer.invoke("recovery:retry", id),
+  discardRecovery: (id) => ipcRenderer.invoke("recovery:discard", id),
+  onRecoveryChanged: on("recovery:changed"),
+
+  getSnippets: () => ipcRenderer.invoke("snippets:get"),
+  setSnippets: (list) => ipcRenderer.invoke("snippets:set", list),
 
   getDictionary: () => ipcRenderer.invoke("dictionary:get"),
   setDictionary: (list) => ipcRenderer.invoke("dictionary:set", list),
